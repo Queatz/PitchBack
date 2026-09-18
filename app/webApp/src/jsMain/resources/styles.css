@@ -187,17 +187,15 @@ img { max-width: 100%; display: block; }
   padding: 14px 14px 16px;
   flex: 1;
 }
-.pitch-photo { height: 280px; }
 .photo-scroller {
   position: relative;
   overflow: hidden;
-  height: 210px;
+  aspect-ratio: 16/9;
   border-radius: 18px;
   touch-action: pan-y;
   user-select: none;
   background: #000;
 }
-.photo-scroller.pitch-photo { height: 280px; }
 .photo-track {
   display: flex;
   width: 100%;

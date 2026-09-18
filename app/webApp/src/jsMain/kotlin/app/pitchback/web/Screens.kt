@@ -38,7 +38,6 @@ import org.jetbrains.compose.web.attributes.value
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H1
-import org.jetbrains.compose.web.dom.H2
 import org.jetbrains.compose.web.dom.H3
 import org.jetbrains.compose.web.dom.Img
 import org.jetbrains.compose.web.dom.Input
@@ -100,6 +99,7 @@ fun PitchScreen(t: T, id: String, user: PublicUser?, lang: AppLang) {
     var card by remember { mutableStateOf<PitchCardDto?>(null) }
     var text by remember { mutableStateOf("") }
     var flash by remember { mutableStateOf(false) }
+    var profileUser by remember { mutableStateOf<PublicUser?>(null) }
     val scope = rememberCoroutineScope()
     LaunchedEffect(id) {
         try {
@@ -118,17 +118,13 @@ fun PitchScreen(t: T, id: String, user: PublicUser?, lang: AppLang) {
         if (c == null) {
             Div({ classes("empty") }) { Text(t.loading) }
         } else {
-            PhotoScroller(c.photoUrls, tall = true)
+            PhotoScroller(c.photoUrls)
             Div({ classes("card-body") }) {
-                H2 {
-                    Text(c.author.name + " ")
-                    if (c.author.verified) Span({ classes("verified") }) { Text("✔") }
-                }
+                PersonDetails(c.author) { profileUser = c.author }
                 Div({ classes("meta") }) {
                     Span({ classes("chip"); classes("chip-green") }) { Text("⚡ ${t.pitchesLeft(c.remainingPitchBacks)}") }
                     if (c.topic.isNotBlank()) Span({ classes("chip"); classes("chip-topic") }) { Text(c.topic) }
                 }
-                if (c.author.intro.isNotBlank()) P({ classes("muted") }) { Text(c.author.intro) }
                 P({ classes("quote-label") }) { Text(t.thePitch) }
                 P({ classes("quote") }) { Text(c.text) }
                 LocationBlock(t, c.location, header = t.theLocation)
@@ -154,6 +150,7 @@ fun PitchScreen(t: T, id: String, user: PublicUser?, lang: AppLang) {
             }
         }
     }
+    profileUser?.let { u -> ProfileDialog(t, u) { profileUser = null } }
 }
 
 @Composable
@@ -179,7 +176,7 @@ fun InboxScreen(t: T, user: PublicUser?, inbox: InboxDto, lang: AppLang, refresh
             Div({ classes("section-title") }) { Text(t.activeMeets) }
             inbox.meets.forEach { meet ->
                 Div({ classes("inbox-card") }) {
-                    PersonDetails(meet.otherUser)
+                    PersonDetails(meet.otherUser) { profileUser = meet.otherUser }
                     P({ classes("preview") }) { Text(meet.pitchPreview) }
                     P({ classes("muted") }) { Text("📍 ${meet.locationName}") }
                     Div({ classes("row-btns") }) {
@@ -222,7 +219,7 @@ fun InboxScreen(t: T, user: PublicUser?, inbox: InboxDto, lang: AppLang, refresh
             Div({ classes("section-title") }) { Text(t.outgoing) }
             inbox.outgoing.forEach { pb ->
                 Div({ classes("inbox-card") }) {
-                    PersonDetails(pb.toUser)
+                    PersonDetails(pb.toUser) { profileUser = pb.toUser }
                     P { Text(pb.text) }
                     GhostButton(t.cancelPitchBack) { scope.launch { runCatching { Api.cancelPitchBack(pb.id) }; refresh() } }
                 }

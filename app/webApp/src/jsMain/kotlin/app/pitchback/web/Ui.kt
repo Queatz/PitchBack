@@ -71,7 +71,7 @@ fun GhostButton(label: String, onClick: () -> Unit) {
 }
 
 @Composable
-fun PhotoScroller(urls: List<String>, tall: Boolean = false, onOpen: (() -> Unit)? = null) {
+fun PhotoScroller(urls: List<String>, onOpen: (() -> Unit)? = null) {
     if (urls.isEmpty()) return
     var index by remember { mutableStateOf(0) }
     var startX by remember { mutableStateOf(0.0) }
@@ -94,9 +94,7 @@ fun PhotoScroller(urls: List<String>, tall: Boolean = false, onOpen: (() -> Unit
     }
     Div({
         classes("photo-scroller")
-        if (tall) classes("pitch-photo")
         if (onOpen != null) classes("clickable")
-        attr("style", "height:${if (tall) "280px" else "210px"}")
         onMouseDown {
             dragging = true
             startX = it.clientX.toDouble()
