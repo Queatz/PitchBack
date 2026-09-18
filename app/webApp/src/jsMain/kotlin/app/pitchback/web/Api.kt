@@ -40,6 +40,10 @@ import kotlin.js.json
 
 class ApiError(message: String, val code: String) : RuntimeException(message)
 
+var requestLang: String = "en"
+
+private fun langHeader(): String = if (requestLang.lowercase().startsWith("vi")) "vi" else "en"
+
 fun apiBase(): String {
     val loc = window.location
     return if (loc.port == "8081") "${loc.protocol}//${loc.hostname}:8080" else ""
@@ -60,9 +64,12 @@ object Api {
         val init = js("{}")
         init.method = method
         init.credentials = "include"
+        val headers = js("{}")
+        headers["Accept-Language"] = langHeader()
         if (form == null && (body != null || method != "GET")) {
-            init.headers = json("Content-Type" to "application/json")
+            headers["Content-Type"] = "application/json"
         }
+        init.headers = headers
         if (form != null) init.body = form else if (body != null) init.body = body
         val res = window.fetch(apiBase() + path, init).await()
         val text = res.text().await()
@@ -113,6 +120,10 @@ object Api {
         AppJson.decodeFromString(
             request("/api/pitches/$id/remaining", "PATCH", AppJson.encodeToString(UpdateRemainingRequest(remaining))),
         )
+
+    suspend fun deletePitch(id: String) {
+        request("/api/pitches/$id", "DELETE")
+    }
 
     suspend fun pitchBack(id: String, text: String) {
         request("/api/pitches/$id/pitch-back", "POST", AppJson.encodeToString(PitchBackRequest(text)))
@@ -171,7 +182,7 @@ object Api {
         val init = js("{}")
         init.method = "POST"
         init.credentials = "include"
-        init.headers = json("Content-Type" to "application/json")
+        init.headers = json("Content-Type" to "application/json", "Accept-Language" to langHeader())
         init.body = AppJson.encodeToString(req)
         val res = window.fetch(apiBase() + "/api/ai/stream", init).await()
         val body = res.asDynamic().body ?: run {

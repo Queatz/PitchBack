@@ -106,6 +106,7 @@ fun App() {
     var feedTick by remember { mutableStateOf(0) }
     val scope = rememberCoroutineScope()
     val lang = langOverride ?: systemLang()
+    requestLang = if (lang == AppLang.VI) "vi" else "en"
     val t = T(lang)
 
     fun applyMe(me: MeDto) {

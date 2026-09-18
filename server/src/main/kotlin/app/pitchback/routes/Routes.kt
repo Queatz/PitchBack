@@ -62,9 +62,11 @@ import app.pitchback.domain.validatePitchBackText
 import app.pitchback.domain.validatePitchText
 import app.pitchback.domain.validateRemainingOnCreate
 import app.pitchback.http.ApiException
+import app.pitchback.i18n.ApiMessages
 import app.pitchback.requireAdmin
 import app.pitchback.requireUser
 import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.PartData
 import io.ktor.http.content.forEachPart
@@ -117,10 +119,10 @@ fun Route.api(app: AppContext) {
 
     post("/api/auth/register") {
         val body = call.receive<RegisterRequest>()
-        validateName(body.name)?.let { throw ApiException.bad(it, "Name must be 2–40 characters") }
-        validatePassword(body.password)?.let { throw ApiException.bad(it, "Password must be at least 8 characters") }
-        val phone = normalizePhone(body.phone) ?: throw ApiException.bad("PHONE", "Enter a valid phone number")
-        if (db.userByPhone(phone) != null) throw ApiException.conflict("PHONE_TAKEN", "That phone is already registered")
+        validateName(body.name)?.let { throw ApiException.bad(it, it) }
+        validatePassword(body.password)?.let { throw ApiException.bad(it, it) }
+        val phone = normalizePhone(body.phone) ?: throw ApiException.bad("PHONE", "PHONE_INVALID")
+        if (db.userByPhone(phone) != null) throw ApiException.conflict("PHONE_TAKEN", "PHONE_TAKEN")
         val now = app.now()
         val user = db.insertUser(
             UserRecord(
@@ -138,11 +140,11 @@ fun Route.api(app: AppContext) {
 
     post("/api/auth/login") {
         val body = call.receive<LoginRequest>()
-        val phone = normalizePhone(body.phone) ?: throw ApiException.bad("PHONE", "Enter a valid phone number")
-        val user = db.userByPhone(phone) ?: throw ApiException.unauthorized("Wrong phone or password")
-        if (user.disabled) throw ApiException.forbidden("DISABLED", "This account is disabled")
+        val phone = normalizePhone(body.phone) ?: throw ApiException.bad("PHONE", "PHONE_INVALID")
+        val user = db.userByPhone(phone) ?: throw ApiException.unauthorized("AUTH_BAD")
+        if (user.disabled) throw ApiException.forbidden("DISABLED", "DISABLED")
         if (!BCrypt.checkpw(body.password, user.passwordHash)) {
-            throw ApiException.unauthorized("Wrong phone or password")
+            throw ApiException.unauthorized("AUTH_BAD")
         }
         call.sessions.set(UserSession(user.key))
         call.respond(meDto(app, user))
@@ -161,17 +163,25 @@ fun Route.api(app: AppContext) {
     patch("/api/me") {
         val user = call.requireUser(app)
         val body = call.receive<UpdateProfileRequest>()
+        val nextPhone = body.phone?.let { raw ->
+            val phone = normalizePhone(raw) ?: throw ApiException.bad("PHONE", "PHONE_INVALID")
+            if (db.userByPhone(phone, exceptUserId = user.key) != null) {
+                throw ApiException.conflict("PHONE_TAKEN", "PHONE_TAKEN")
+            }
+            phone
+        }
         val patch = patchOf {
             body.name?.let {
-                validateName(it)?.let { code -> throw ApiException.bad(code, "Name must be 2–40 characters") }
+                validateName(it)?.let { code -> throw ApiException.bad(code, code) }
                 put("name", it.trim())
             }
             body.intro?.let { put("intro", it.trim()) }
             body.photoUrl?.let { put("photoUrl", it) }
+            nextPhone?.let { put("phone", it) }
             if (body.language != null) {
                 val lang = body.language
                 if (lang != "en" && lang != "vi" && lang != "") {
-                    throw ApiException.bad("LANGUAGE", "Language must be en, vi, or empty")
+                    throw ApiException.bad("LANGUAGE", "LANGUAGE")
                 }
                 put("language", lang.ifBlank { null } ?: "")
             }
@@ -183,10 +193,10 @@ fun Route.api(app: AppContext) {
     post("/api/me/verify") {
         val user = call.requireUser(app)
         val body = call.receive<VerificationRequestBody>()
-        val phone = normalizePhone(body.zaloPhone) ?: throw ApiException.bad("PHONE", "Enter a valid Zalo phone number")
-        if (user.verified) throw ApiException.bad("ALREADY", "Already verified")
+        val phone = normalizePhone(body.zaloPhone) ?: throw ApiException.bad("PHONE", "ZALO_PHONE_INVALID")
+        if (user.verified) throw ApiException.bad("ALREADY", "ALREADY_VERIFIED")
         if (db.pendingVerification(user.key) != null) {
-            throw ApiException.conflict("PENDING", "A verification request is already pending")
+            throw ApiException.conflict("PENDING", "VERIFY_PENDING")
         }
         db.insertVerification(
             VerificationRecord(
@@ -217,11 +227,11 @@ fun Route.api(app: AppContext) {
                     type.contains("webp") -> "webp"
                     type.contains("gif") -> "gif"
                     type.contains("jpeg") || type.contains("jpg") -> "jpg"
-                    else -> throw ApiException.bad("FILE_TYPE", "Please upload a JPG, PNG, WEBP, or GIF")
+                    else -> throw ApiException.bad("FILE_TYPE", "FILE_TYPE")
                 }
                 val bytes = part.provider().readRemaining().readByteArray()
                 if (bytes.size > 8 * 1024 * 1024) {
-                    throw ApiException.bad("FILE_SIZE", "Photos must be 8 MB or smaller")
+                    throw ApiException.bad("FILE_SIZE", "FILE_SIZE")
                 }
                 val name = "${UUID.randomUUID()}.$ext"
                 File(app.config.uploadDir, name).writeBytes(bytes)
@@ -229,7 +239,7 @@ fun Route.api(app: AppContext) {
             }
             part.dispose()
         }
-        val saved = url ?: throw ApiException.bad("FILE", "No file uploaded")
+        val saved = url ?: throw ApiException.bad("FILE", "FILE_MISSING")
         call.respond(UploadResponse(saved))
     }
 
@@ -242,14 +252,14 @@ fun Route.api(app: AppContext) {
     }
 
     get("/api/locations/{id}") {
-        val loc = db.locationById(call.parameters["id"].orEmpty()) ?: throw ApiException.notFound("Location not found")
+        val loc = db.locationById(call.parameters["id"].orEmpty()) ?: throw ApiException.notFound("LOCATION_NOT_FOUND")
         call.respond(loc.toDto())
     }
 
     post("/api/locations/recommend") {
         val user = call.requireUser(app)
         val body = call.receive<RecommendLocationRequest>()
-        if (body.name.trim().length < 2) throw ApiException.bad("NAME", "Please name the place")
+        if (body.name.trim().length < 2) throw ApiException.bad("NAME", "PLACE_NAME")
         db.insertLocationRec(
             LocationRecRecord(
                 key = UUID.randomUUID().toString(),
@@ -276,7 +286,7 @@ fun Route.api(app: AppContext) {
 
     get("/api/pitches/{id}") {
         val viewer = call.currentUser(app)
-        val pitch = db.pitchById(call.parameters["id"].orEmpty()) ?: throw ApiException.notFound("Pitch not found")
+        val pitch = db.pitchById(call.parameters["id"].orEmpty()) ?: throw ApiException.notFound("PITCH_NOT_FOUND")
         val author = db.userById(pitch.authorId)
         val now = app.now()
         val isOwner = viewer?.key == pitch.authorId
@@ -290,10 +300,11 @@ fun Route.api(app: AppContext) {
                     now,
                 )
             ) {
-                throw ApiException.notFound("Pitch not found")
+                throw ApiException.notFound("PITCH_NOT_FOUND")
             }
         }
-        val card = db.toCard(pitch, viewer?.key, now) ?: throw ApiException.notFound("Pitch not found")
+        val card = db.toCard(pitch, viewer?.key, now, forReview = isAdmin)
+            ?: throw ApiException.notFound("PITCH_NOT_FOUND")
         call.respond(card)
     }
 
@@ -301,13 +312,13 @@ fun Route.api(app: AppContext) {
         val user = call.requireUser(app)
         val body = call.receive<CreatePitchRequest>()
         validatePitchText(body.text)?.let {
-            throw ApiException.bad(it, "Pitch text needs at least 80 characters")
+            throw ApiException.bad(it, it)
         }
-        validatePhotos(body.photoUrls)?.let { throw ApiException.bad(it, "Add at least one photo") }
+        validatePhotos(body.photoUrls)?.let { throw ApiException.bad(it, it) }
         validateRemainingOnCreate(body.remainingPitchBacks)?.let {
-            throw ApiException.bad(it, "Remaining pitch backs must be 1–99")
+            throw ApiException.bad(it, it)
         }
-        db.locationById(body.locationId) ?: throw ApiException.bad("LOCATION", "Pick a location")
+        db.locationById(body.locationId) ?: throw ApiException.bad("LOCATION", "LOCATION_REQUIRED")
         val now = app.now()
         val pitch = db.insertPitch(
             PitchRecord(
@@ -346,10 +357,20 @@ fun Route.api(app: AppContext) {
         val pitch = db.pitchById(call.parameters["id"].orEmpty()) ?: throw ApiException.notFound()
         if (pitch.authorId != user.key) throw ApiException.forbidden()
         val remaining = call.receive<UpdateRemainingRequest>().remainingPitchBacks
-        if (remaining < 0 || remaining > 99) throw ApiException.bad("REMAINING", "Remaining pitch backs must be 0–99")
+        if (remaining < 0 || remaining > 99) throw ApiException.bad("REMAINING", "REMAINING_RANGE")
         val updated = db.updatePitch(pitch.key, patchOf { put("remainingPitchBacks", remaining) })
         app.hub.sendMany(listOf(user.key), "feed")
         call.respond(db.toCard(updated, user.key, app.now())!!)
+    }
+
+    delete("/api/pitches/{id}") {
+        val user = call.requireUser(app)
+        val pitch = db.pitchById(call.parameters["id"].orEmpty()) ?: throw ApiException.notFound("PITCH_NOT_FOUND")
+        if (pitch.authorId != user.key) throw ApiException.forbidden()
+        db.deletePitch(pitch.key)
+        app.hub.send(user.key, "me")
+        app.hub.send(user.key, "feed")
+        call.respond(OkDto())
     }
 
     post("/api/pitches/{id}/pitch-back") {
@@ -358,17 +379,17 @@ fun Route.api(app: AppContext) {
         val author = db.userById(pitch.authorId) ?: throw ApiException.notFound()
         val now = app.now()
         if (!canPitchBackOnOwnPitch(pitch.authorId, user.key)) {
-            throw ApiException.bad("OWN", "You can't pitch back on your own pitch")
+            throw ApiException.bad("OWN", "OWN_PITCH")
         }
         if (!pitchIsPublic(pitch.status, pitch.remainingPitchBacks, pitch.availableUntil, author.disabled, now)) {
-            throw ApiException.bad("UNAVAILABLE", "This pitch is no longer available")
+            throw ApiException.bad("UNAVAILABLE", "PITCH_UNAVAILABLE")
         }
         val body = call.receive<PitchBackRequest>()
         validatePitchBackText(body.text)?.let {
-            throw ApiException.bad(it, "Pitch back needs at least 40 characters")
+            throw ApiException.bad(it, it)
         }
         if (db.existingPendingPitchBack(pitch.key, user.key) != null) {
-            throw ApiException.conflict("EXISTS", "You already pitched back")
+            throw ApiException.conflict("EXISTS", "PITCH_BACK_EXISTS")
         }
         val created = now
         val pb = db.insertPitchBack(
@@ -399,7 +420,7 @@ fun Route.api(app: AppContext) {
         val pitch = db.pitchById(pb.pitchId) ?: throw ApiException.notFound()
         val now = app.now()
         if (!canAcceptPitchBack(pb.status, pb.expiresAt, pitch.remainingPitchBacks, now)) {
-            throw ApiException.bad("EXPIRED", "This pitch back can't be accepted")
+            throw ApiException.bad("EXPIRED", "PITCH_BACK_EXPIRED")
         }
         db.updatePitchBack(pb.key, patchOf { put("status", STATUS_ACCEPTED) })
         val remaining = remainingAfterAccept(pitch.remainingPitchBacks)
@@ -424,7 +445,7 @@ fun Route.api(app: AppContext) {
         val user = call.requireUser(app)
         val pb = db.pitchBackById(call.parameters["id"].orEmpty()) ?: throw ApiException.notFound()
         if (pb.toUserId != user.key) throw ApiException.forbidden()
-        if (pb.status != STATUS_PENDING) throw ApiException.bad("STATUS", "Already handled")
+        if (pb.status != STATUS_PENDING) throw ApiException.bad("STATUS", "ALREADY_HANDLED")
         db.updatePitchBack(pb.key, patchOf { put("status", STATUS_PASSED) })
         app.hub.sendMany(listOf(pb.fromUserId, pb.toUserId), "inbox")
         call.respond(OkDto())
@@ -434,7 +455,7 @@ fun Route.api(app: AppContext) {
         val user = call.requireUser(app)
         val pb = db.pitchBackById(call.parameters["id"].orEmpty()) ?: throw ApiException.notFound()
         if (pb.fromUserId != user.key) throw ApiException.forbidden()
-        if (pb.status != STATUS_PENDING) throw ApiException.bad("STATUS", "Already handled")
+        if (pb.status != STATUS_PENDING) throw ApiException.bad("STATUS", "ALREADY_HANDLED")
         db.updatePitchBack(pb.key, patchOf { put("status", STATUS_CANCELLED) })
         app.hub.sendMany(listOf(pb.fromUserId, pb.toUserId), "inbox")
         call.respond(OkDto())
@@ -444,7 +465,7 @@ fun Route.api(app: AppContext) {
         val user = call.requireUser(app)
         val meet = db.meetById(call.parameters["id"].orEmpty()) ?: throw ApiException.notFound()
         if (meet.ownerId != user.key && meet.guestId != user.key) throw ApiException.forbidden()
-        if (meet.status != STATUS_ACTIVE) throw ApiException.bad("STATUS", "Meet is not active")
+        if (meet.status != STATUS_ACTIVE) throw ApiException.bad("STATUS", "MEET_INACTIVE")
         db.updateMeet(
             meet.key,
             patchOf {
@@ -462,7 +483,7 @@ fun Route.api(app: AppContext) {
         if (meet.ownerId != user.key && meet.guestId != user.key) throw ApiException.forbidden()
         val already = meetEndedBy(meet.endedUserIds, meet.endedBy)
         if (!canEndMeet(meet.status, already, user.key)) {
-            throw ApiException.bad("STATUS", "Meet is not active")
+            throw ApiException.bad("STATUS", "MEET_INACTIVE")
         }
         val message = call.receive<EndMeetRequest>().message.trim()
         val (next, status) = endMeetForUser(already, user.key, meet.ownerId, meet.guestId)
@@ -502,7 +523,7 @@ fun Route.api(app: AppContext) {
         if (!canReportNoShow(already, meet.status)) {
             throw ApiException.bad(
                 if (already) "DUPLICATE" else "STATUS",
-                if (already) "No-show already reported" else "Meet is not active",
+                if (already) "NOSHOW_DUPLICATE" else "MEET_INACTIVE",
             )
         }
         val message = runCatching { call.receive<NoShowRequest>().message }.getOrDefault("").trim()
@@ -537,7 +558,11 @@ fun Route.api(app: AppContext) {
                 write("data: {\"done\":true}\n\n")
                 flush()
             } catch (e: ApiException) {
-                val payload = AppJson.encodeToString(ErrorBody.serializer(), ErrorBody(e.message ?: "", e.code))
+                val lang = ApiMessages.langFromAccept(call.request.headers[HttpHeaders.AcceptLanguage])
+                val payload = AppJson.encodeToString(
+                    ErrorBody.serializer(),
+                    ErrorBody(ApiMessages.t(lang, e.message ?: e.code), e.code),
+                )
                 write("data: $payload\n\n")
                 flush()
             }
@@ -550,9 +575,9 @@ fun Route.api(app: AppContext) {
             call.respond(db.adminPending())
         }
         get("/pitches") {
-            call.requireAdmin(app)
+            val admin = call.requireAdmin(app)
             val now = app.now()
-            val items = db.pendingPitches().mapNotNull { db.toCard(it, call.requireAdmin(app).key, now) }
+            val items = db.pendingPitches().mapNotNull { db.toCard(it, admin.key, now, forReview = true) }
             call.respond(FeedResponse(items))
         }
         post("/pitches/{id}/approve") {
@@ -603,7 +628,7 @@ fun Route.api(app: AppContext) {
         post("/users/{id}/disable") {
             val admin = call.requireAdmin(app)
             val target = db.userById(call.parameters["id"].orEmpty()) ?: throw ApiException.notFound()
-            if (!canDisableAccount(admin.key, target.key)) throw ApiException.bad("SELF", "You can't disable your own account")
+            if (!canDisableAccount(admin.key, target.key)) throw ApiException.bad("SELF", "DISABLE_SELF")
             db.updateUser(target.key, patchOf { put("disabled", !target.disabled) })
             call.respond(OkDto())
         }
@@ -678,9 +703,9 @@ fun Route.api(app: AppContext) {
 }
 
 private fun validateLocation(body: LocationWriteRequest) {
-    if (body.name.trim().length < 2) throw ApiException.bad("NAME", "Name is required")
-    validatePhotos(body.photoUrls)?.let { throw ApiException.bad(it, "Add at least one photo") }
-    validateHighlights(body.highlights)?.let { throw ApiException.bad(it, "Add exactly 3 highlights") }
+    if (body.name.trim().length < 2) throw ApiException.bad("NAME", "NAME_REQUIRED")
+    validatePhotos(body.photoUrls)?.let { throw ApiException.bad(it, it) }
+    validateHighlights(body.highlights)?.let { throw ApiException.bad(it, it) }
 }
 
 private suspend fun meDto(app: AppContext, user: UserRecord): MeDto {

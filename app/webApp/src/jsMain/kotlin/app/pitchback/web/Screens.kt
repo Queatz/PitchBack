@@ -125,7 +125,7 @@ fun PitchScreen(t: T, id: String, user: PublicUser?, lang: AppLang) {
                     if (c.author.verified) Span({ classes("verified") }) { Text("✔") }
                 }
                 Div({ classes("meta") }) {
-                    Span({ classes("chip"); classes("chip-green") }) { Text("⚡ ${c.remainingPitchBacks} ${t.pitchesLeft}") }
+                    Span({ classes("chip"); classes("chip-green") }) { Text("⚡ ${t.pitchesLeft(c.remainingPitchBacks)}") }
                     if (c.topic.isNotBlank()) Span({ classes("chip"); classes("chip-topic") }) { Text(c.topic) }
                 }
                 if (c.author.intro.isNotBlank()) P({ classes("muted") }) { Text(c.author.intro) }
@@ -165,6 +165,7 @@ fun InboxScreen(t: T, user: PublicUser?, inbox: InboxDto, lang: AppLang, refresh
     var noShowMeet by remember { mutableStateOf<MeetDto?>(null) }
     var noShowText by remember { mutableStateOf("") }
     var noShowBusy by remember { mutableStateOf(false) }
+    var profileUser by remember { mutableStateOf<PublicUser?>(null) }
     Div {
         Div({ classes("topbar") }) { H1 { Text(t.inbox) } }
         if (user == null) {
@@ -178,7 +179,6 @@ fun InboxScreen(t: T, user: PublicUser?, inbox: InboxDto, lang: AppLang, refresh
             Div({ classes("section-title") }) { Text(t.activeMeets) }
             inbox.meets.forEach { meet ->
                 Div({ classes("inbox-card") }) {
-                    Div({ classes("accent") })
                     PersonDetails(meet.otherUser)
                     P({ classes("preview") }) { Text(meet.pitchPreview) }
                     P({ classes("muted") }) { Text("📍 ${meet.locationName}") }
@@ -208,8 +208,7 @@ fun InboxScreen(t: T, user: PublicUser?, inbox: InboxDto, lang: AppLang, refresh
             Div({ classes("section-title") }) { Text(t.incoming) }
             inbox.incoming.forEachIndexed { i, pb ->
                 Div({ classes("inbox-card"); if (i % 2 == 1) classes("alt") }) {
-                    Div({ classes("accent") })
-                    PersonDetails(pb.fromUser)
+                    PersonDetails(pb.fromUser) { profileUser = pb.fromUser }
                     P({ classes("preview") }) { Text("“${pb.pitchPreview}”") }
                     P { Text(pb.text) }
                     Div({ classes("row-btns") }) {
@@ -230,6 +229,7 @@ fun InboxScreen(t: T, user: PublicUser?, inbox: InboxDto, lang: AppLang, refresh
             }
         }
     }
+    profileUser?.let { u -> ProfileDialog(t, u) { profileUser = null } }
     if (noShowMeet != null) {
         Div({ classes("modal-back"); onClick { noShowMeet = null } }) {
             Div({ classes("modal"); onClick { it.stopPropagation() } }) {
@@ -359,6 +359,7 @@ private fun ProfilePanel(
     var name by remember { mutableStateOf(user.name) }
     var intro by remember { mutableStateOf(user.intro) }
     var photo by remember { mutableStateOf(user.photoUrl ?: "") }
+    var phone by remember { mutableStateOf(user.phone ?: "") }
     var zalo by remember { mutableStateOf(user.phone ?: "") }
     var myPitches by remember { mutableStateOf(listOf<PitchCardDto>()) }
     var topics by remember { mutableStateOf(listOf<TopicDto>()) }
@@ -373,6 +374,7 @@ private fun ProfilePanel(
         if (photo.isNotBlank()) Img(src = assetUrl(photo), alt = "") { attr("style", "width:88px;height:88px;border-radius:50%;object-fit:cover") }
         PhotoPicker(t, if (photo.isBlank()) emptyList() else listOf(photo), t.profilePhoto, multiple = false) { photo = it.lastOrNull().orEmpty() }
         Div({ classes("field") }) { Label { Text(t.name) }; TextInput(name) { onInput { name = it.value } } }
+        Div({ classes("field") }) { Label { Text(t.phone) }; TextInput(phone) { onInput { phone = it.value } } }
         AiField(t, t.intro, intro, { intro = it }, "intro", t.intro, null, lang)
         Div({ classes("field") }) {
             Label { Text(t.language) }
@@ -389,14 +391,24 @@ private fun ProfilePanel(
                 }
             }) {
                 Option("", { if (langOverride == null) selected() }) { Text(t.systemLang) }
-                Option("en", { if (langOverride == AppLang.EN) selected() }) { Text(t.english) }
-                Option("vi", { if (langOverride == AppLang.VI) selected() }) { Text(t.vietnamese) }
+                Option("en", { if (langOverride == AppLang.EN) selected() }) { Text("English") }
+                Option("vi", { if (langOverride == AppLang.VI) selected() }) { Text("Tiếng Việt") }
             }
         }
         GradButton(t.save) {
             scope.launch {
                 try {
-                    applyMe(Api.updateMe(UpdateProfileRequest(name = name, intro = intro, photoUrl = photo.ifBlank { null })))
+                    applyMe(
+                        Api.updateMe(
+                            UpdateProfileRequest(
+                                name = name,
+                                intro = intro,
+                                photoUrl = photo.ifBlank { null },
+                                phone = phone,
+                            ),
+                        ),
+                    )
+                    showNotice(t.profileUpdated)
                 } catch (e: Throwable) {
                     showNotice(e.message)
                 }
@@ -445,6 +457,19 @@ private fun ProfilePanel(
                             val n = (p.remainingPitchBacks + 1).coerceAtMost(99)
                             scope.launch { runCatching { Api.updateRemaining(p.id, n) }; runCatching { myPitches = Api.myPitches().items } }
                         } }) { Text("+ ${p.remainingPitchBacks}") }
+                    }
+                    Spacer()
+                    GhostButton(t.dismiss) {
+                        showConfirm(t.dismiss, t.confirmDismissPitch, t.dismiss) {
+                            scope.launch {
+                                runCatching { Api.deletePitch(p.id) }
+                                    .onFailure { showNotice(it.message) }
+                                    .onSuccess {
+                                        runCatching { myPitches = Api.myPitches().items }
+                                        runCatching { applyMe(Api.me()) }
+                                    }
+                            }
+                        }
                     }
                 }
             }

@@ -6,6 +6,7 @@ import app.pitchback.auth.UserSession
 import app.pitchback.db.Arango
 import app.pitchback.db.Database
 import app.pitchback.http.ApiException
+import app.pitchback.i18n.ApiMessages
 import app.pitchback.routes.api
 import app.pitchback.sse.EventHub
 import io.ktor.http.HttpHeaders
@@ -87,6 +88,7 @@ fun Application.module(config: AppConfig = AppConfig.load()) {
         allowMethod(HttpMethod.Delete)
         allowHeader(HttpHeaders.ContentType)
         allowHeader(HttpHeaders.Authorization)
+        allowHeader(HttpHeaders.AcceptLanguage)
         allowCredentials = true
         allowNonSimpleContentTypes = true
         listOf("localhost:8081", "127.0.0.1:8081", "localhost:8080", "127.0.0.1:8080").forEach {
@@ -95,13 +97,16 @@ fun Application.module(config: AppConfig = AppConfig.load()) {
     }
     install(StatusPages) {
         exception<ApiException> { call, cause ->
-            call.respond(cause.status, ErrorBody(cause.message ?: "Error", cause.code))
+            val lang = ApiMessages.langFromAccept(call.request.headers[HttpHeaders.AcceptLanguage])
+            val key = cause.message ?: cause.code
+            call.respond(cause.status, ErrorBody(ApiMessages.t(lang, key), cause.code))
         }
         exception<Throwable> { call, cause ->
             log.error("Unhandled error", cause)
+            val lang = ApiMessages.langFromAccept(call.request.headers[HttpHeaders.AcceptLanguage])
             call.respond(
                 HttpStatusCode.InternalServerError,
-                ErrorBody("Something went wrong", "SERVER"),
+                ErrorBody(ApiMessages.t(lang, "SERVER"), "SERVER"),
             )
         }
     }

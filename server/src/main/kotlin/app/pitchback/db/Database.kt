@@ -16,6 +16,7 @@ import app.pitchback.domain.meetEndedBy
 import app.pitchback.domain.STATUS_APPROVED
 import app.pitchback.domain.STATUS_CANCELLED
 import app.pitchback.domain.STATUS_PENDING
+import app.pitchback.domain.phonesMatch
 import app.pitchback.domain.pitchIsPublic
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
@@ -29,8 +30,12 @@ class Database(val arango: Arango) {
     suspend fun userById(id: String): UserRecord? =
         arango.queryOne("FOR u IN users FILTER u._key == @id RETURN u", mapOf("id" to v(id)))
 
-    suspend fun userByPhone(phone: String): UserRecord? =
-        arango.queryOne("FOR u IN users FILTER u.phone == @phone RETURN u", mapOf("phone" to v(phone)))
+    suspend fun userByPhone(phone: String, exceptUserId: String? = null): UserRecord? {
+        val users: List<UserRecord> = arango.queryList("FOR u IN users RETURN u")
+        return users.firstOrNull { u ->
+            (exceptUserId == null || u.key != exceptUserId) && phonesMatch(u.phone, phone)
+        }
+    }
 
     suspend fun insertUser(user: UserRecord): UserRecord = arango.insert("users", user)
 
@@ -58,6 +63,14 @@ class Database(val arango: Arango) {
     suspend fun insertPitch(doc: PitchRecord): PitchRecord = arango.insert("pitches", doc)
 
     suspend fun updatePitch(key: String, patch: JsonObject): PitchRecord = arango.update("pitches", key, patch)
+
+    suspend fun deletePitch(key: String) {
+        arango.query(
+            "FOR pb IN pitchBacks FILTER pb.pitchId == @id REMOVE pb IN pitchBacks",
+            mapOf("id" to v(key)),
+        )
+        arango.remove("pitches", key)
+    }
 
     suspend fun pitchesByAuthor(authorId: String): List<PitchRecord> =
         arango.queryList(
@@ -266,11 +279,16 @@ class Database(val arango: Arango) {
         return AdminPendingDto(pitches, verifications, noShows, recs)
     }
 
-    suspend fun toCard(pitch: PitchRecord, viewerId: String?, now: Long): PitchCardDto? {
+    suspend fun toCard(
+        pitch: PitchRecord,
+        viewerId: String?,
+        now: Long,
+        forReview: Boolean = false,
+    ): PitchCardDto? {
         val author = userById(pitch.authorId) ?: return null
         val location = locationById(pitch.locationId)
         val locationDto = location?.toDto() ?: LocationDto(id = pitch.locationId, name = "Unknown", createdAt = 0)
-        if (viewerId != pitch.authorId) {
+        if (!forReview && viewerId != pitch.authorId) {
             if (!pitchIsPublic(pitch.status, pitch.remainingPitchBacks, pitch.availableUntil, author.disabled, now)) {
                 return null
             }

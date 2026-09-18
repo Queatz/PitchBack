@@ -13,7 +13,12 @@ class T(val lang: AppLang) {
     val pitchBack get() = s("Pitch back", "Ngỏ lời")
     val thePitch get() = s("The pitch", "Lời ngỏ")
     val theLocation get() = s("The location", "Địa điểm")
-    val pitchesLeft get() = s("pitches left", "lời ngỏ còn")
+    val profileUpdated get() = s("Profile updated", "Đã cập nhật hồ sơ")
+    val verifiedBadge get() = s("Verified", "Đã xác minh")
+    val confirmDismissPitch get() = s(
+        "Remove this pitch completely? This can't be undone.",
+        "Xóa hẳn lời ngỏ này? Không hoàn tác được.",
+    )
     val acceptPitch get() = s("Accept pitch", "Chấp nhận lời ngỏ")
     val dismiss get() = s("Dismiss", "Bỏ qua")
     val cancel get() = s("Cancel", "Hủy")
@@ -141,6 +146,12 @@ class T(val lang: AppLang) {
         lang == AppLang.VI -> if (count == 1) "1 việc đang chờ" else "$count việc đang chờ"
         count == 1 -> "1 pending task"
         else -> "$count pending tasks"
+    }
+
+    fun pitchesLeft(count: Int): String = when {
+        lang == AppLang.VI -> if (count == 1) "1 lời ngỏ còn" else "$count lời ngỏ còn"
+        count == 1 -> "1 pitch left"
+        else -> "$count pitches left"
     }
 
     fun needMoreChars(n: Int): String = s("At least $n more characters", "Còn ít nhất $n ký tự nữa")

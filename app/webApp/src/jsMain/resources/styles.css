@@ -168,6 +168,8 @@ img { max-width: 100%; display: block; }
 }
 
 .card {
+  display: flex;
+  flex-direction: column;
   background: var(--card);
   border-radius: var(--radius);
   overflow: hidden;
@@ -179,7 +181,12 @@ img { max-width: 100%; display: block; }
   from { opacity: 0; transform: translateY(14px); }
   to { opacity: 1; transform: none; }
 }
-.card-body { padding: 14px 14px 16px; }
+.card-body {
+  display: flex;
+  flex-direction: column;
+  padding: 14px 14px 16px;
+  flex: 1;
+}
 .pitch-photo { height: 280px; }
 .photo-scroller {
   position: relative;
@@ -259,6 +266,7 @@ img { max-width: 100%; display: block; }
 }
 .meta .lefts { color: var(--lime); font-weight: 700; }
 .quote {
+  flex-grow: 1;
   color: var(--text);
   opacity: 0.92;
   margin: 0 0 14px;
@@ -522,7 +530,7 @@ html[data-theme="light"] .chip-topic { background: #efe8ff; color: #5b3bb8; }
 .highlight.c0 { color: var(--lime); }
 .highlight.c1 { color: var(--pink); }
 .highlight.c2 { color: var(--purple); }
-.person-card { display: flex; gap: 12px; align-items: flex-start; margin: 6px 0 10px; }
+.person-card { display: flex; gap: 12px; align-items: center; margin: 6px 0 10px; }
 .person-card h3 { margin: 0; font-size: 1.05rem; }
 .person-card .intro { margin: 4px 0 0; color: var(--muted); font-size: 0.9rem; }
 .person-photo {
@@ -539,6 +547,24 @@ html[data-theme="light"] .chip-topic { background: #efe8ff; color: #5b3bb8; }
   font-weight: 800;
   color: var(--lime);
 }
+.person-open { cursor: pointer; }
+.person-open:hover { opacity: 0.86; }
+.profile-sheet { text-align: center; }
+.profile-sheet-photo {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: grid;
+  place-items: center;
+  margin: 0 auto 14px;
+  background: var(--chip);
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: var(--lime);
+}
+.profile-sheet h2 { margin: 0 0 8px; }
+.profile-sheet .intro { color: var(--muted); margin: 0 0 16px; }
 .switch { display: flex; gap: 12px; align-items: center; cursor: pointer; user-select: none; }
 .switch-ui {
   width: 48px;
@@ -564,7 +590,7 @@ html[data-theme="light"] .chip-topic { background: #efe8ff; color: #5b3bb8; }
 }
 .switch-ui.on .switch-knob { transform: translateX(20px); }
 .location-pick { width: 100%; text-align: left; justify-content: flex-start; }
-.quote-label { color: var(--lime); font-weight: 800; margin: 8px 0 4px; }
+.quote-label { color: var(--lime); font-weight: 800; margin: 8px 0; }
 .modal-scroll { max-height: 85vh; overflow: auto; }
 .sticker-img { width: min(100%, 360px); border-radius: 24px; margin: 0 auto 12px; }
 .photo-scroller.clickable { cursor: pointer; }

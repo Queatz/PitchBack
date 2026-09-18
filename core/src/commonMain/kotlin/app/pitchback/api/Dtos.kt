@@ -113,6 +113,7 @@ data class UpdateProfileRequest(
     val intro: String? = null,
     val photoUrl: String? = null,
     val language: String? = null,
+    val phone: String? = null,
 )
 
 @Serializable

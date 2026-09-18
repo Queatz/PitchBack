@@ -2,6 +2,7 @@ package app.pitchback.domain
 
 import app.pitchback.api.DayHours
 import app.pitchback.api.OpeningHours
+import app.pitchback.i18n.ApiMessages
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -24,6 +25,9 @@ class RulesTest {
         assertEquals("+84912345678", normalizePhone("84912345678"))
         assertNull(normalizePhone("123"))
         assertNull(normalizePhone(""))
+        assertTrue(phonesMatch("0912345678", "+84 912 345 678"))
+        assertTrue(phonesMatch("84912345678", "0912 345 678"))
+        assertFalse(phonesMatch("0912345678", "0987654321"))
     }
 
     @Test
@@ -137,5 +141,15 @@ class RulesTest {
         assertTrue(mixedGroups[1].closed)
         assertEquals(5, mixedGroups[1].startDay)
         assertEquals(6, mixedGroups[1].endDay)
+    }
+
+    @Test
+    fun apiMessagesFollowAcceptLanguage() {
+        assertEquals("vi", ApiMessages.langFromAccept("vi-VN,vi;q=0.9"))
+        assertEquals("en", ApiMessages.langFromAccept("en-US,en;q=0.8"))
+        assertEquals("Sign in required", ApiMessages.t("en", "AUTH_REQUIRED"))
+        assertEquals("Cần đăng nhập", ApiMessages.t("vi", "AUTH_REQUIRED"))
+        assertEquals("That phone is already registered", ApiMessages.t("en", "PHONE_TAKEN"))
+        assertEquals("Số điện thoại này đã được đăng ký", ApiMessages.t("vi", "PHONE_TAKEN"))
     }
 }

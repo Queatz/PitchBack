@@ -31,6 +31,12 @@ fun normalizePhone(raw: String): String? {
     }
 }
 
+fun phonesMatch(a: String, b: String): Boolean {
+    val left = normalizePhone(a) ?: return false
+    val right = normalizePhone(b) ?: return false
+    return left == right
+}
+
 fun validatePassword(password: String): String? {
     if (password.length < PASSWORD_MIN) return "PASSWORD_SHORT"
     return null

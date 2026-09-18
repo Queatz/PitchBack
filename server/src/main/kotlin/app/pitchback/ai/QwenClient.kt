@@ -33,7 +33,7 @@ class QwenClient(private val config: AppConfig) {
             throw ApiException(
                 HttpStatusCode.ServiceUnavailable,
                 "AI_UNAVAILABLE",
-                "Qwen API key is missing. Set DASHSCOPE_API_KEY in .env",
+                "AI_UNAVAILABLE",
             )
         }
         val kindLabel = when (req.kind) {
@@ -83,16 +83,14 @@ class QwenClient(private val config: AppConfig) {
             setBody(body.toString())
         }.execute { response ->
             if (response.status.value >= 400) {
-                val text = buildString {
-                    val ch = response.bodyAsChannel()
-                    while (!ch.isClosedForRead) {
-                        append(ch.readUTF8Line() ?: break)
-                    }
+                val ch = response.bodyAsChannel()
+                while (!ch.isClosedForRead) {
+                    ch.readUTF8Line() ?: break
                 }
                 throw ApiException(
                     HttpStatusCode.BadGateway,
                     "AI",
-                    text.take(300).ifBlank { "Qwen request failed (${response.status})" },
+                    "AI_FAILED",
                 )
             }
             val channel = response.bodyAsChannel()

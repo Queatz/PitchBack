@@ -31,6 +31,6 @@ suspend fun ApplicationCall.requireUser(app: AppContext): UserRecord =
 
 suspend fun ApplicationCall.requireAdmin(app: AppContext): UserRecord {
     val user = requireUser(app)
-    if (!user.isAdmin) throw ApiException.forbidden("ADMIN", "Admin only")
+    if (!user.isAdmin) throw ApiException.forbidden("ADMIN", "ADMIN_ONLY")
     return user
 }

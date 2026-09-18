@@ -294,7 +294,7 @@ fun PitchCardView(t: T, card: PitchCardDto, onOpen: () -> Unit, onPitchBack: () 
                 }
             }
             Div({ classes("meta") }) {
-                Span({ classes("lefts") }) { Text("⚡ ${card.remainingPitchBacks} ${t.pitchesLeft}") }
+                Span({ classes("lefts") }) { Text("⚡ ${t.pitchesLeft(card.remainingPitchBacks)}") }
                 Text(" · ${card.location.name}")
             }
             org.jetbrains.compose.web.dom.P({
@@ -374,13 +374,26 @@ fun PhotoPicker(
                         classes("photo-thumb")
                         attr("draggable", "true")
                         onDragStart {
-                            it.asDynamic().dataTransfer.setData("text/plain", index.toString())
+                            draggingPhotoIndex = index
+                            val dt = it.nativeEvent.asDynamic().dataTransfer
+                            try {
+                                dt.setData("text/plain", index.toString())
+                                dt.effectAllowed = "move"
+                            } catch (_: Throwable) {
+                            }
                         }
                         onDragOver { it.preventDefault() }
                         onDrop {
                             it.preventDefault()
-                            val from = it.asDynamic().dataTransfer.getData("text/plain").toString().toIntOrNull()
-                                ?: return@onDrop
+                            val from = draggingPhotoIndex ?: run {
+                                val dt = it.nativeEvent.asDynamic().dataTransfer
+                                try {
+                                    dt.getData("text/plain").toString().toIntOrNull()
+                                } catch (_: Throwable) {
+                                    null
+                                }
+                            } ?: return@onDrop
+                            draggingPhotoIndex = null
                             if (from == index) return@onDrop
                             val next = urls.toMutableList()
                             val item = next.removeAt(from)
@@ -414,6 +427,7 @@ fun Spacer() {
 }
 
 var appNotice by mutableStateOf<String?>(null)
+private var draggingPhotoIndex: Int? = null
 
 fun isBenignCancel(message: String?): Boolean {
     val m = message.orEmpty().lowercase()
@@ -516,19 +530,61 @@ fun LocationBlock(t: T, loc: LocationDto, header: String? = null, selectLabel: S
 }
 
 @Composable
-fun PersonDetails(user: PublicUser) {
+fun PersonDetails(user: PublicUser, onOpen: (() -> Unit)? = null) {
     Div({ classes("person-card") }) {
         if (!user.photoUrl.isNullOrBlank()) {
-            Img(src = assetUrl(user.photoUrl!!), alt = user.name) { classes("person-photo") }
+            Img(src = assetUrl(user.photoUrl!!), alt = user.name) {
+                classes("person-photo")
+                if (onOpen != null) {
+                    classes("person-open")
+                    onClick { onOpen() }
+                }
+            }
         } else {
-            Div({ classes("person-photo", "placeholder") }) { Text(user.name.take(1).uppercase()) }
+            Div({
+                classes("person-photo", "placeholder")
+                if (onOpen != null) {
+                    classes("person-open")
+                    onClick { onOpen() }
+                }
+            }) { Text(user.name.take(1).uppercase()) }
         }
         Div {
-            H3 {
+            H3({
+                if (onOpen != null) {
+                    classes("person-open")
+                    onClick { onOpen() }
+                }
+            }) {
                 Text(user.name + " ")
                 if (user.verified) Span({ classes("verified") }) { Text("✔") }
             }
             if (user.intro.isNotBlank()) P({ classes("intro") }) { Text(user.intro) }
+        }
+    }
+}
+
+@Composable
+fun ProfileDialog(t: T, user: PublicUser, onClose: () -> Unit) {
+    Div({
+        classes("modal-back")
+        onClick { onClose() }
+    }) {
+        Div({
+            classes("modal", "profile-sheet")
+            onClick { it.stopPropagation() }
+        }) {
+            if (!user.photoUrl.isNullOrBlank()) {
+                Img(src = assetUrl(user.photoUrl!!), alt = user.name) { classes("profile-sheet-photo") }
+            } else {
+                Div({ classes("profile-sheet-photo", "placeholder") }) { Text(user.name.take(1).uppercase()) }
+            }
+            H2 {
+                Text(user.name + " ")
+                if (user.verified) Span({ classes("verified") }) { Text("✔ ${t.verifiedBadge}") }
+            }
+            if (user.intro.isNotBlank()) P({ classes("intro") }) { Text(user.intro) }
+            GradButton(t.close) { onClose() }
         }
     }
 }

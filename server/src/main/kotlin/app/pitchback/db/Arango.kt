@@ -187,21 +187,20 @@ class Arango(private val config: AppConfig) {
             ?: throw ApiException(
                 HttpStatusCode.BadGateway,
                 "DB",
-                "ArangoDB error (${status.value})",
+                "DB_ERROR",
             )
         val err = json["error"]
         val isError = err != null && err !is JsonNull && err.toString() != "false" &&
             (err.jsonPrimitive.contentOrNull == "true" || err.toString() == "true")
         if (status.value >= 400 || isError) {
-            val message = json["errorMessage"]?.jsonPrimitive?.contentOrNull ?: text
             val num = json["errorNum"]?.jsonPrimitive?.intOrNull
             if (num == 1210) {
-                throw ApiException.conflict("DUPLICATE", message)
+                throw ApiException.conflict("DUPLICATE", "DUPLICATE")
             }
             throw ApiException(
                 if (status.value >= 400) status else HttpStatusCode.BadGateway,
                 "DB",
-                message,
+                "DB_ERROR",
             )
         }
         return json
