@@ -139,6 +139,7 @@ data class NoShowRecord(
     val accusedId: String,
     val status: String,
     val createdAt: Long,
+    val message: String = "",
 )
 
 fun defaultOpeningHours() = OpeningHours(

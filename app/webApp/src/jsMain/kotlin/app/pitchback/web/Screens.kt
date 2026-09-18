@@ -162,6 +162,9 @@ fun InboxScreen(t: T, user: PublicUser?, inbox: InboxDto, lang: AppLang, refresh
     var sticker by remember { mutableStateOf<MeetDto?>(null) }
     var endId by remember { mutableStateOf<String?>(null) }
     var finalText by remember { mutableStateOf("") }
+    var noShowMeet by remember { mutableStateOf<MeetDto?>(null) }
+    var noShowText by remember { mutableStateOf("") }
+    var noShowBusy by remember { mutableStateOf(false) }
     Div {
         Div({ classes("topbar") }) { H1 { Text(t.inbox) } }
         if (user == null) {
@@ -176,13 +179,17 @@ fun InboxScreen(t: T, user: PublicUser?, inbox: InboxDto, lang: AppLang, refresh
             inbox.meets.forEach { meet ->
                 Div({ classes("inbox-card") }) {
                     Div({ classes("accent") })
-                    H3 { Text(meet.otherUser.name); if (meet.otherUser.verified) Span({ classes("verified") }) { Text(" ✔") } }
+                    PersonDetails(meet.otherUser)
                     P({ classes("preview") }) { Text(meet.pitchPreview) }
                     P({ classes("muted") }) { Text("📍 ${meet.locationName}") }
                     Div({ classes("row-btns") }) {
                         GradButton(t.endMeet) { endId = meet.id }
                         GhostButton(t.cancelMeet) { scope.launch { runCatching { Api.cancelMeet(meet.id) }; refresh() } }
-                        GhostButton(t.noShow) { scope.launch { runCatching { Api.noShow(meet.id) }; refresh() } }
+                        if (meet.reportedNoShow) {
+                            P({ classes("muted") }) { Text(t.reportedNoShow) }
+                        } else {
+                            GhostButton(t.noShow) { noShowMeet = meet; noShowText = "" }
+                        }
                     }
                 }
             }
@@ -202,8 +209,8 @@ fun InboxScreen(t: T, user: PublicUser?, inbox: InboxDto, lang: AppLang, refresh
             inbox.incoming.forEachIndexed { i, pb ->
                 Div({ classes("inbox-card"); if (i % 2 == 1) classes("alt") }) {
                     Div({ classes("accent") })
+                    PersonDetails(pb.fromUser)
                     P({ classes("preview") }) { Text("“${pb.pitchPreview}”") }
-                    H3 { Text(pb.fromUser.name); if (pb.fromUser.verified) Span({ classes("verified") }) { Text(" ✔") } }
                     P { Text(pb.text) }
                     Div({ classes("row-btns") }) {
                         GradButton(t.acceptPitch) { scope.launch { runCatching { Api.accept(pb.id) }.onFailure { showNotice(it.message) }; refresh() } }
@@ -216,10 +223,36 @@ fun InboxScreen(t: T, user: PublicUser?, inbox: InboxDto, lang: AppLang, refresh
             Div({ classes("section-title") }) { Text(t.outgoing) }
             inbox.outgoing.forEach { pb ->
                 Div({ classes("inbox-card") }) {
-                    P({ classes("muted") }) { Text(pb.toUser.name) }
+                    PersonDetails(pb.toUser)
                     P { Text(pb.text) }
                     GhostButton(t.cancelPitchBack) { scope.launch { runCatching { Api.cancelPitchBack(pb.id) }; refresh() } }
                 }
+            }
+        }
+    }
+    if (noShowMeet != null) {
+        Div({ classes("modal-back"); onClick { noShowMeet = null } }) {
+            Div({ classes("modal"); onClick { it.stopPropagation() } }) {
+                H3 { Text(t.noShow) }
+                P { Text(t.confirmNoShow) }
+                AiField(t, "", noShowText, { noShowText = it }, "noShow", t.noShowExplain, null, lang)
+                GradButton(t.noShow) {
+                    val meet = noShowMeet ?: return@GradButton
+                    if (meet.reportedNoShow || noShowBusy) return@GradButton
+                    noShowBusy = true
+                    scope.launch {
+                        try {
+                            Api.noShow(meet.id, noShowText)
+                            noShowMeet = null
+                            noShowText = ""
+                            refresh()
+                        } catch (e: Throwable) {
+                            showCaught(e)
+                        }
+                        noShowBusy = false
+                    }
+                }
+                GhostButton(t.cancel) { noShowMeet = null }
             }
         }
     }
@@ -616,7 +649,12 @@ fun AdminScreen(t: T, user: PublicUser?, lang: AppLang) {
             }
             "noshow" -> noShows.forEach { n ->
                 Div({ classes("inbox-card") }) {
-                    P { Text("${n.reporter.name} → ${n.accused.name}") }
+                    PersonDetails(n.reporter)
+                    P({ classes("muted") }) { Text("${t.noShow} →") }
+                    PersonDetails(n.accused)
+                    if (n.locationName.isNotBlank()) P({ classes("muted") }) { Text("📍 ${n.locationName}") }
+                    if (n.pitchPreview.isNotBlank()) P({ classes("preview") }) { Text("“${n.pitchPreview}”") }
+                    if (n.message.isNotBlank()) P { Text(n.message) }
                     GradButton(t.review) { scope.launch { Api.reviewNoShow(n.id); reload() } }
                 }
             }

@@ -1,5 +1,7 @@
 package app.pitchback.domain
 
+import app.pitchback.api.DayHours
+import app.pitchback.api.OpeningHours
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -105,5 +107,35 @@ class RulesTest {
         assertEquals(listOf("owner", "guest"), second.first)
         assertEquals(STATUS_ENDED, second.second)
         assertFalse(meetActiveForUser(second.second, second.first, "guest"))
+    }
+
+    @Test
+    fun noShowCannotBeReportedTwiceOrOnCancelled() {
+        assertTrue(canReportNoShow(false, STATUS_ACTIVE))
+        assertTrue(canReportNoShow(false, STATUS_ENDED))
+        assertFalse(canReportNoShow(true, STATUS_ACTIVE))
+        assertFalse(canReportNoShow(false, STATUS_CANCELLED))
+    }
+
+    @Test
+    fun hoursOpenNowAndCondensed() {
+        val hours = OpeningHours()
+        assertTrue(isOpenAt(hours, 1, 12 * 60))
+        assertFalse(isOpenAt(hours, 1, 22 * 60))
+        val status = openStatus(hours, 1, 12 * 60)
+        assertTrue(status.open)
+        assertEquals(21 * 60, status.nextMinutes)
+        val groups = condensedHours(hours)
+        assertEquals(1, groups.size)
+        assertEquals(0, groups[0].startDay)
+        assertEquals(6, groups[0].endDay)
+
+        val mixed = hours.copy(sat = DayHours(closed = true), sun = DayHours(closed = true))
+        val mixedGroups = condensedHours(mixed)
+        assertEquals(2, mixedGroups.size)
+        assertFalse(mixedGroups[0].closed)
+        assertTrue(mixedGroups[1].closed)
+        assertEquals(5, mixedGroups[1].startDay)
+        assertEquals(6, mixedGroups[1].endDay)
     }
 }

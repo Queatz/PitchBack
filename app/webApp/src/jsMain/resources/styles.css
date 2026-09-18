@@ -457,6 +457,18 @@ html[data-theme="light"] .chip-topic { background: #efe8ff; color: #5b3bb8; }
   text-align: center;
   animation: pop 0.5s cubic-bezier(.2,1.4,.4,1);
 }
+.sticker-img {
+  width: min(72vw, 320px);
+  height: min(72vw, 320px);
+  border-radius: 50%;
+  display: block;
+  margin: 0 auto 8px;
+  object-fit: cover;
+  box-shadow: var(--shadow);
+}
+.sticker-download {
+  margin: 12px 0 18px;
+}
 @keyframes pop {
   from { transform: scale(0.6); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
@@ -500,8 +512,33 @@ html[data-theme="light"] .chip-topic { background: #efe8ff; color: #5b3bb8; }
   box-shadow: var(--shadow);
 }
 
-.hours { display: grid; gap: 6px; }
+.hours { display: grid; gap: 2px; margin: 8px 0 10px; }
+.hours-now { font-weight: 800; font-size: 0.95rem; }
+.hours-now.open { color: var(--green); }
+.hours-now.closed { color: var(--danger); }
+.hours-line { color: var(--muted); font-size: 0.82rem; margin: 0; line-height: 1.35; }
 .hours-row { display: grid; grid-template-columns: 70px 1fr 1fr auto; gap: 6px; align-items: center; font-size: 0.85rem; }
+.highlight { font-weight: 700; margin: 4px 0; }
+.highlight.c0 { color: var(--lime); }
+.highlight.c1 { color: var(--pink); }
+.highlight.c2 { color: var(--purple); }
+.person-card { display: flex; gap: 12px; align-items: flex-start; margin: 6px 0 10px; }
+.person-card h3 { margin: 0; font-size: 1.05rem; }
+.person-card .intro { margin: 4px 0 0; color: var(--muted); font-size: 0.9rem; }
+.person-photo {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: var(--chip);
+}
+.person-photo.placeholder {
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  color: var(--lime);
+}
 .switch { display: flex; gap: 12px; align-items: center; cursor: pointer; user-select: none; }
 .switch-ui {
   width: 48px;

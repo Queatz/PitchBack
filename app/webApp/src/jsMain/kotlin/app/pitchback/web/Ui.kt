@@ -8,12 +8,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import app.pitchback.api.AiStreamRequest
-import app.pitchback.api.DayHours
 import app.pitchback.api.LocationDto
 import app.pitchback.api.OpeningHours
 import app.pitchback.api.PitchCardDto
+import app.pitchback.api.PublicUser
+import app.pitchback.domain.OpenStatus
+import app.pitchback.domain.condensedHours
+import app.pitchback.domain.formatMinutes
+import app.pitchback.domain.openStatus
+import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.max
+import kotlin.js.Date
 import kotlinx.browser.document
 import kotlinx.browser.window
 import kotlinx.coroutines.await
@@ -485,14 +491,16 @@ fun ThemeSwitch(label: String, checked: Boolean, onChecked: (Boolean) -> Unit) {
 
 @Composable
 fun LocationBlock(t: T, loc: LocationDto, header: String? = null, selectLabel: String? = null, onSelect: (() -> Unit)? = null) {
-    if (header != null) Div({ classes("section-title") }) { Text(header) }
+    if (header != null) Div({ classes("quote-label") }) { Text(header) }
     Div({ classes("card") }) {
         PhotoScroller(loc.photoUrls)
         Div({ classes("card-body") }) {
             H3 { Text(loc.name) }
             if (loc.description.isNotBlank()) P { Text(loc.description) }
             if (loc.address.isNotBlank()) P({ classes("muted") }) { Text("📍 ${loc.address}") }
-            loc.highlights.filter { it.isNotBlank() }.forEach { P({ classes("muted") }) { Text("✦ $it") } }
+            loc.highlights.filter { it.isNotBlank() }.forEachIndexed { i, h ->
+                P({ classes("highlight", "c${i % 3}") }) { Text("✦ $h") }
+            }
             HoursList(t, loc.openingHours)
             val mapUrl = loc.directionsUrl.ifBlank {
                 val q = loc.address.ifBlank { loc.name }
@@ -508,25 +516,64 @@ fun LocationBlock(t: T, loc: LocationDto, header: String? = null, selectLabel: S
 }
 
 @Composable
-private fun HoursList(t: T, hours: OpeningHours) {
-    val rows = listOf(
-        t.mon to hours.mon,
-        t.tue to hours.tue,
-        t.wed to hours.wed,
-        t.thu to hours.thu,
-        t.fri to hours.fri,
-        t.sat to hours.sat,
-        t.sun to hours.sun,
-    )
-    Div({ classes("hours") }) {
-        rows.forEach { (day, h) ->
-            P({ classes("muted") }) { Text("$day · ${formatHours(t, h)}") }
+fun PersonDetails(user: PublicUser) {
+    Div({ classes("person-card") }) {
+        if (!user.photoUrl.isNullOrBlank()) {
+            Img(src = assetUrl(user.photoUrl!!), alt = user.name) { classes("person-photo") }
+        } else {
+            Div({ classes("person-photo", "placeholder") }) { Text(user.name.take(1).uppercase()) }
+        }
+        Div {
+            H3 {
+                Text(user.name + " ")
+                if (user.verified) Span({ classes("verified") }) { Text("✔") }
+            }
+            if (user.intro.isNotBlank()) P({ classes("intro") }) { Text(user.intro) }
         }
     }
 }
 
-private fun formatHours(t: T, h: DayHours): String =
-    if (h.closed) t.closed else listOfNotNull(h.open, h.close).joinToString("–").ifBlank { t.open }
+@Composable
+private fun HoursList(t: T, hours: OpeningHours) {
+    val now = remember {
+        val d = Date()
+        d.getDay() to (d.getHours() * 60 + d.getMinutes())
+    }
+    val status = remember(hours, now) { openStatus(hours, now.first, now.second) }
+    val groups = remember(hours) { condensedHours(hours) }
+    val monFirst = listOf(t.mon, t.tue, t.wed, t.thu, t.fri, t.sat, t.sun)
+    val jsDays = listOf(t.sun, t.mon, t.tue, t.wed, t.thu, t.fri, t.sat)
+    Div({ classes("hours") }) {
+        Div({
+            classes("hours-now")
+            if (status.open) classes("open") else classes("closed")
+        }) {
+            Text(hoursNowLine(t, status, now.first, jsDays))
+        }
+        groups.forEach { g ->
+            val days = if (g.startDay == g.endDay) monFirst[g.startDay]
+            else "${monFirst[g.startDay]}–${monFirst[g.endDay]}"
+            val time = when {
+                g.closed -> t.closed
+                else -> listOfNotNull(g.open, g.close).joinToString("–").ifBlank { t.open }
+            }
+            P({ classes("hours-line") }) { Text("$days  $time") }
+        }
+    }
+}
+
+private fun hoursNowLine(t: T, status: OpenStatus, today: Int, jsDays: List<String>): String {
+    val time = status.nextMinutes?.let { formatMinutes(it) }
+    return when {
+        status.open && time != null -> "${t.openNow} · ${t.closesAt(time)}"
+        status.open -> t.openNow
+        time != null && status.nextDay != null && status.nextDay == today ->
+            "${t.closedNow} · ${t.opensAt(time)}"
+        time != null && status.nextDay != null ->
+            "${t.closedNow} · ${t.opensAt("${jsDays[status.nextDay!!]} $time")}"
+        else -> t.closedNow
+    }
+}
 
 fun encodeURIComponent(value: String): String = js("encodeURIComponent")(value) as String
 
@@ -585,7 +632,11 @@ fun WeMetSticker(t: T, meUrl: String?, otherUrl: String?, onClose: () -> Unit) {
                 Div({ classes("empty") }) { Text(t.loading) }
             }
             H2 { Text(t.weMet) }
-            if (dataUrl != null) GradButton(t.download) { downloadDataUrl(dataUrl!!, "we-met.png") }
+            if (dataUrl != null) {
+                Div({ classes("sticker-download") }) {
+                    GradButton(t.download) { downloadDataUrl(dataUrl!!, "we-met.png") }
+                }
+            }
             GhostButton(t.close, onClose)
         }
     }
@@ -596,6 +647,12 @@ private suspend fun renderWeMetPng(leftUrl: String, rightUrl: String, caption: S
     canvas.width = 720
     canvas.height = 720
     val ctx = canvas.getContext("2d") as CanvasRenderingContext2D
+    ctx.clearRect(0.0, 0.0, 720.0, 720.0)
+    ctx.save()
+    ctx.beginPath()
+    ctx.arc(360.0, 360.0, 360.0, 0.0, PI * 2)
+    ctx.closePath()
+    ctx.clip()
     val grad = ctx.createLinearGradient(0.0, 0.0, 720.0, 720.0)
     grad.addColorStop(0.0, "#24102c")
     grad.addColorStop(1.0, "#ff4d94")
@@ -604,30 +661,38 @@ private suspend fun renderWeMetPng(leftUrl: String, rightUrl: String, caption: S
     val left = loadCanvasImage(leftUrl)
     val right = loadCanvasImage(rightUrl)
     ctx.save()
-    heartPath(ctx, 360.0, 310.0, 250.0)
+    heartPath(ctx, 360.0, 300.0, 250.0)
     ctx.clip()
-    drawCover(ctx, left, 70.0, 70.0, 290.0, 430.0)
-    drawCover(ctx, right, 360.0, 70.0, 290.0, 430.0)
+    drawCover(ctx, left, 110.0, 84.0, 250.0, 430.0)
+    drawCover(ctx, right, 360.0, 84.0, 250.0, 430.0)
     ctx.restore()
     ctx.strokeStyle = "#d4ff3f"
     ctx.lineWidth = 10.0
-    heartPath(ctx, 360.0, 310.0, 250.0)
+    heartPath(ctx, 360.0, 300.0, 250.0)
     ctx.stroke()
     ctx.fillStyle = "#ffffff"
-    ctx.font = "800 54px Be Vietnam Pro, sans-serif"
+    ctx.font = "800 48px Be Vietnam Pro, sans-serif"
     ctx.asDynamic().textAlign = "center"
-    ctx.fillText(caption, 360.0, 620.0)
+    ctx.fillText(caption, 360.0, 600.0)
     ctx.fillStyle = "#d4ff3f"
     ctx.font = "700 22px Be Vietnam Pro, sans-serif"
-    ctx.fillText("Saigon.Social", 360.0, 662.0)
+    ctx.fillText("Saigon.Social", 360.0, 640.0)
+    ctx.restore()
     return canvas.toDataURL("image/png")
 }
 
 private fun heartPath(ctx: CanvasRenderingContext2D, cx: Double, cy: Double, size: Double) {
+    val s = size / 55.0
+    fun x(v: Double) = cx + (v - 75.0) * s
+    fun y(v: Double) = cy + (v - 72.5) * s
     ctx.beginPath()
-    ctx.moveTo(cx, cy + size * 0.32)
-    ctx.bezierCurveTo(cx - size, cy + size * 0.08, cx - size, cy - size * 0.42, cx, cy - size * 0.08)
-    ctx.bezierCurveTo(cx + size, cy - size * 0.42, cx + size, cy + size * 0.08, cx, cy + size * 0.32)
+    ctx.moveTo(x(75.0), y(40.0))
+    ctx.bezierCurveTo(x(75.0), y(37.0), x(70.0), y(25.0), x(50.0), y(25.0))
+    ctx.bezierCurveTo(x(20.0), y(25.0), x(20.0), y(62.5), x(20.0), y(62.5))
+    ctx.bezierCurveTo(x(20.0), y(80.0), x(40.0), y(102.0), x(75.0), y(120.0))
+    ctx.bezierCurveTo(x(110.0), y(102.0), x(130.0), y(80.0), x(130.0), y(62.5))
+    ctx.bezierCurveTo(x(130.0), y(62.5), x(130.0), y(25.0), x(100.0), y(25.0))
+    ctx.bezierCurveTo(x(85.0), y(25.0), x(75.0), y(37.0), x(75.0), y(40.0))
     ctx.closePath()
 }
 

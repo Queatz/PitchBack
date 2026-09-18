@@ -138,6 +138,9 @@ data class PitchBackRequest(val text: String)
 data class EndMeetRequest(val message: String = "")
 
 @Serializable
+data class NoShowRequest(val message: String = "")
+
+@Serializable
 data class VerificationRequestBody(val zaloPhone: String)
 
 @Serializable
@@ -194,6 +197,7 @@ data class MeetDto(
     val cancelledByName: String? = null,
     val endedByMe: Boolean = false,
     val myPhotoUrl: String? = null,
+    val reportedNoShow: Boolean = false,
 )
 
 @Serializable
@@ -244,6 +248,10 @@ data class NoShowDto(
     val accused: PublicUser,
     val status: String,
     val createdAt: Long,
+    val message: String = "",
+    val locationName: String = "",
+    val pitchPreview: String = "",
+    val meetCreatedAt: Long = 0,
 )
 
 @Serializable

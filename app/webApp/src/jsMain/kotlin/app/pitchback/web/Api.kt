@@ -5,6 +5,7 @@ import app.pitchback.api.AdminPendingDto
 import app.pitchback.api.AiStreamRequest
 import app.pitchback.api.CreatePitchRequest
 import app.pitchback.api.EndMeetRequest
+import app.pitchback.api.NoShowRequest
 import app.pitchback.api.ErrorBody
 import app.pitchback.api.FeedResponse
 import app.pitchback.api.InboxDto
@@ -134,7 +135,9 @@ object Api {
     suspend fun endMeet(id: String, message: String): MeetDto =
         AppJson.decodeFromString(request("/api/meets/$id/end", "POST", AppJson.encodeToString(EndMeetRequest(message))))
     suspend fun dismissMeet(id: String) { request("/api/meets/$id/dismiss", "POST", "{}") }
-    suspend fun noShow(id: String) { request("/api/meets/$id/no-show", "POST", "{}") }
+    suspend fun noShow(id: String, message: String = "") {
+        request("/api/meets/$id/no-show", "POST", AppJson.encodeToString(NoShowRequest(message)))
+    }
 
     suspend fun upload(file: File): String {
         val form = FormData()

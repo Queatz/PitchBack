@@ -5,6 +5,7 @@ import app.pitchback.AppJson
 import app.pitchback.api.AiStreamRequest
 import app.pitchback.api.CreatePitchRequest
 import app.pitchback.api.EndMeetRequest
+import app.pitchback.api.NoShowRequest
 import app.pitchback.api.ErrorBody
 import app.pitchback.api.FeedResponse
 import app.pitchback.api.InboxDto
@@ -43,6 +44,7 @@ import app.pitchback.domain.STATUS_REVIEWED
 import app.pitchback.domain.canAcceptPitchBack
 import app.pitchback.domain.canDisableAccount
 import app.pitchback.domain.canEndMeet
+import app.pitchback.domain.canReportNoShow
 import app.pitchback.domain.canPitchBackOnOwnPitch
 import app.pitchback.domain.endMeetForUser
 import app.pitchback.domain.meetActiveForUser
@@ -496,7 +498,14 @@ fun Route.api(app: AppContext) {
         val user = call.requireUser(app)
         val meet = db.meetById(call.parameters["id"].orEmpty()) ?: throw ApiException.notFound()
         if (meet.ownerId != user.key && meet.guestId != user.key) throw ApiException.forbidden()
-        if (meet.status == STATUS_CANCELLED) throw ApiException.bad("STATUS", "Meet is not active")
+        val already = db.noShowByMeetAndReporter(meet.key, user.key) != null
+        if (!canReportNoShow(already, meet.status)) {
+            throw ApiException.bad(
+                if (already) "DUPLICATE" else "STATUS",
+                if (already) "No-show already reported" else "Meet is not active",
+            )
+        }
+        val message = runCatching { call.receive<NoShowRequest>().message }.getOrDefault("").trim()
         val accused = if (meet.ownerId == user.key) meet.guestId else meet.ownerId
         db.insertNoShow(
             NoShowRecord(
@@ -506,6 +515,7 @@ fun Route.api(app: AppContext) {
                 accusedId = accused,
                 status = STATUS_PENDING,
                 createdAt = app.now(),
+                message = message,
             ),
         )
         call.respond(OkDto())

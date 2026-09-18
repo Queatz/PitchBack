@@ -82,6 +82,11 @@ class T(val lang: AppLang) {
     val weMet get() = s("We met!", "Chúng mình đã gặp!")
     val download get() = s("Download sticker", "Tải sticker")
     val noShow get() = s("Report no-show", "Báo không đến")
+    val confirmNoShow get() = s("Report this as a no-show?", "Báo người kia không đến?")
+    val noShowExplain get() = s("What happened? (optional)", "Chuyện gì xảy ra? (tuỳ chọn)")
+    val reportedNoShow get() = s("No-show reported", "Đã báo không đến")
+    val openNow get() = s("Open now", "Đang mở")
+    val closedNow get() = s("Closed", "Đóng cửa")
     val expires get() = s("Expires", "Hết hạn")
     val yourPitch get() = s("Your pitch", "Lời ngỏ của bạn")
     val back get() = s("Back", "Quay lại")
@@ -144,4 +149,8 @@ class T(val lang: AppLang) {
         "You pitched back $name! Check your inbox for updates.",
         "Bạn đã ngỏ lời với $name! Kiểm tra hộp thư để theo dõi.",
     )
+
+    fun closesAt(time: String): String = s("Closes $time", "Đóng lúc $time")
+
+    fun opensAt(whenText: String): String = s("Opens $whenText", "Mở lúc $whenText")
 }

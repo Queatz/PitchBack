@@ -6,6 +6,7 @@ object AiStarters {
         "intro" -> intro(lang)
         "final" -> finalMsg(lang)
         "location" -> location(lang)
+        "noShow" -> noShow(lang)
         else -> pitch(lang)
     }
 
@@ -127,6 +128,18 @@ object AiStarters {
         "Close enough to walk, far enough to feel chosen." to "Đủ gần để đi bộ, đủ xa để thấy là đã chọn.",
         "Where arguments can stay gentle and still be real." to "Nơi tranh luận vẫn dịu mà vẫn thật.",
         "A shelter for the kind of talk that needs a second cup." to "Chỗ trú cho chuyện cần thêm một ly nữa.",
+    )
+
+    private fun noShow(lang: AppLang) = list(
+        lang,
+        "They never arrived and didn't message." to "Họ không đến và không nhắn gì.",
+        "I waited past the time we agreed and left." to "Tôi đợi quá giờ hẹn rồi ra về.",
+        "They cancelled only after I was already there." to "Họ hủy khi tôi đã có mặt.",
+        "No reply after I confirmed I was at the place." to "Không trả lời sau khi tôi báo đã tới.",
+        "They asked to move the time, then disappeared." to "Họ xin dời giờ rồi biến mất.",
+        "I saw them nearby but they didn't come in." to "Tôi thấy họ gần đó nhưng không vào.",
+        "The wait felt disrespectful, not just late." to "Việc đợi không chỉ muộn — mà thiếu tôn trọng.",
+        "I want this on record so the next person is safer." to "Tôi muốn ghi lại để người sau được an toàn hơn.",
     )
 
     private fun list(lang: AppLang, vararg pairs: Pair<String, String>): List<String> =

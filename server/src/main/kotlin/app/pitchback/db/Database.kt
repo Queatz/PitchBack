@@ -228,6 +228,12 @@ class Database(val arango: Arango) {
 
     suspend fun insertNoShow(doc: NoShowRecord): NoShowRecord = arango.insert("noShows", doc)
 
+    suspend fun noShowByMeetAndReporter(meetId: String, reporterId: String): NoShowRecord? =
+        arango.queryOne(
+            "FOR n IN noShows FILTER n.meetId == @m AND n.reporterId == @r LIMIT 1 RETURN n",
+            mapOf("m" to v(meetId), "r" to v(reporterId)),
+        )
+
     suspend fun pendingNoShows(): List<NoShowRecord> =
         arango.queryList(
             "FOR n IN noShows FILTER n.status == @s SORT n.createdAt DESC RETURN n",
@@ -326,6 +332,7 @@ class Database(val arango: Arango) {
             cancelledByName = cancelledBy,
             endedByMe = viewerId in meetEndedBy(meet.endedUserIds, meet.endedBy),
             myPhotoUrl = me?.photoUrl,
+            reportedNoShow = noShowByMeetAndReporter(meet.key, viewerId) != null,
         )
     }
 
@@ -337,7 +344,21 @@ class Database(val arango: Arango) {
     suspend fun toNoShowDto(doc: NoShowRecord): NoShowDto? {
         val reporter = userById(doc.reporterId) ?: return null
         val accused = userById(doc.accusedId) ?: return null
-        return NoShowDto(doc.key, doc.meetId, reporter.toPublic(), accused.toPublic(), doc.status, doc.createdAt)
+        val meet = meetById(doc.meetId)
+        val pitch = meet?.let { pitchById(it.pitchId) }
+        val location = pitch?.let { locationById(it.locationId) }
+        return NoShowDto(
+            id = doc.key,
+            meetId = doc.meetId,
+            reporter = reporter.toPublic(),
+            accused = accused.toPublic(),
+            status = doc.status,
+            createdAt = doc.createdAt,
+            message = doc.message,
+            locationName = location?.name ?: "",
+            pitchPreview = pitch?.text?.take(160) ?: "",
+            meetCreatedAt = meet?.createdAt ?: 0,
+        )
     }
 
     suspend fun toLocationRecDto(doc: LocationRecRecord): LocationRecDto? {
