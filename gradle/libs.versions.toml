@@ -1,0 +1,42 @@
+[versions]
+junit = "4.13.2"
+kotlin = "2.4.20"
+ktor = "3.5.2"
+logback = "1.6.3"
+compose = "1.12.0"
+kotlinx-serialization = "1.9.0"
+kotlinx-coroutines = "1.10.2"
+jbcrypt = "0.4"
+
+[libraries]
+kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
+kotlin-testJunit = { module = "org.jetbrains.kotlin:kotlin-test-junit", version.ref = "kotlin" }
+junit = { module = "junit:junit", version.ref = "junit" }
+logback = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
+jbcrypt = { module = "org.mindrot:jbcrypt", version.ref = "jbcrypt" }
+
+ktor-serverCore = { module = "io.ktor:ktor-server-core-jvm", version.ref = "ktor" }
+ktor-serverNetty = { module = "io.ktor:ktor-server-netty-jvm", version.ref = "ktor" }
+ktor-serverTestHost = { module = "io.ktor:ktor-server-test-host-jvm", version.ref = "ktor" }
+ktor-serverContentNegotiation = { module = "io.ktor:ktor-server-content-negotiation-jvm", version.ref = "ktor" }
+ktor-serverSessions = { module = "io.ktor:ktor-server-sessions-jvm", version.ref = "ktor" }
+ktor-serverCors = { module = "io.ktor:ktor-server-cors-jvm", version.ref = "ktor" }
+ktor-serverCallLogging = { module = "io.ktor:ktor-server-call-logging-jvm", version.ref = "ktor" }
+ktor-serverStatusPages = { module = "io.ktor:ktor-server-status-pages-jvm", version.ref = "ktor" }
+ktor-serverSse = { module = "io.ktor:ktor-server-sse-jvm", version.ref = "ktor" }
+ktor-serverCompression = { module = "io.ktor:ktor-server-compression-jvm", version.ref = "ktor" }
+ktor-serverDefaultHeaders = { module = "io.ktor:ktor-server-default-headers-jvm", version.ref = "ktor" }
+ktor-serializationKotlinxJson = { module = "io.ktor:ktor-serialization-kotlinx-json-jvm", version.ref = "ktor" }
+ktor-clientCore = { module = "io.ktor:ktor-client-core-jvm", version.ref = "ktor" }
+ktor-clientCio = { module = "io.ktor:ktor-client-cio-jvm", version.ref = "ktor" }
+ktor-clientContentNegotiation = { module = "io.ktor:ktor-client-content-negotiation-jvm", version.ref = "ktor" }
+
+[plugins]
+kotlinJvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+kotlinSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+ktor = { id = "io.ktor.plugin", version.ref = "ktor" }
+compose = { id = "org.jetbrains.compose", version.ref = "compose" }
+composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
