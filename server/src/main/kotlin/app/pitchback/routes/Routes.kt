@@ -49,6 +49,8 @@ import app.pitchback.domain.canPitchBackOnOwnPitch
 import app.pitchback.domain.endMeetForUser
 import app.pitchback.domain.meetActiveForUser
 import app.pitchback.domain.meetEndedBy
+import app.pitchback.domain.otherFinalMessage
+import app.pitchback.domain.shouldShowInboxFinalMessage
 import app.pitchback.domain.isAdminOnCreate
 import app.pitchback.domain.normalizePhone
 import app.pitchback.domain.pitchBackExpiresAt
@@ -728,11 +730,19 @@ private suspend fun inboxDto(app: AppContext, user: UserRecord): InboxDto {
     val cancelled = meets.filter {
         it.status == STATUS_CANCELLED && user.key !in it.dismissedBy
     }.mapNotNull { app.db.toMeetDto(it, user.key) }
+    val finalMessages = meets.filter {
+        shouldShowInboxFinalMessage(
+            otherFinalMessage(user.key, it.ownerId, it.guestId, it.ownerFinalMessage, it.guestFinalMessage),
+            user.key,
+            it.dismissedBy,
+        )
+    }.mapNotNull { app.db.toMeetDto(it, user.key) }
     return InboxDto(
+        finalMessages = finalMessages,
         meets = active,
         cancelledMeets = cancelled,
         incoming = incoming,
         outgoing = outgoing,
-        badge = incoming.size + cancelled.size,
+        badge = incoming.size + cancelled.size + finalMessages.size,
     )
 }

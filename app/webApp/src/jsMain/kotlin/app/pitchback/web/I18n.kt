@@ -83,6 +83,7 @@ class T(val lang: AppLang) {
     val endMeet get() = s("Send final message & end", "Gửi tin nhắn cuối & kết thúc")
     val skipEnd get() = s("End without a message", "Kết thúc không nhắn")
     val finalMessage get() = s("Final message", "Tin nhắn cuối")
+    val finalMessages get() = s("Final messages", "Tin nhắn cuối")
     val optional get() = s("Optional", "Tuỳ chọn")
     val weMet get() = s("We met!", "Chúng mình đã gặp!")
     val download get() = s("Download sticker", "Tải sticker")

@@ -114,6 +114,25 @@ class RulesTest {
     }
 
     @Test
+    fun otherFinalMessageIsBlankSafeAndSwappedForViewer() {
+        assertEquals("thanks", otherFinalMessage("owner", "owner", "guest", "mine", "thanks"))
+        assertEquals("mine", otherFinalMessage("guest", "owner", "guest", "mine", "thanks"))
+        assertNull(otherFinalMessage("owner", "owner", "guest", "mine", "  "))
+        assertNull(otherFinalMessage("guest", "owner", "guest", "", "thanks"))
+        assertNull(otherFinalMessage("other", "owner", "guest", "mine", "thanks"))
+    }
+
+    @Test
+    fun inboxHidesBlankOrDismissedFinalMessages() {
+        assertTrue(shouldShowInboxFinalMessage("bye", "guest", emptyList()))
+        assertFalse(shouldShowInboxFinalMessage("", "guest", emptyList()))
+        assertFalse(shouldShowInboxFinalMessage("   ", "guest", emptyList()))
+        assertFalse(shouldShowInboxFinalMessage(null, "guest", emptyList()))
+        assertFalse(shouldShowInboxFinalMessage("bye", "guest", listOf("guest")))
+        assertTrue(shouldShowInboxFinalMessage("bye", "guest", listOf("owner")))
+    }
+
+    @Test
     fun noShowCannotBeReportedTwiceOrOnCancelled() {
         assertTrue(canReportNoShow(false, STATUS_ACTIVE))
         assertTrue(canReportNoShow(false, STATUS_ENDED))

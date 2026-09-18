@@ -133,3 +133,21 @@ fun endMeetForUser(
     val status = if (ownerId in next && guestId in next) STATUS_ENDED else STATUS_ACTIVE
     return next to status
 }
+
+fun otherFinalMessage(
+    viewerId: String,
+    ownerId: String,
+    guestId: String,
+    ownerFinalMessage: String?,
+    guestFinalMessage: String?,
+): String? {
+    val raw = when (viewerId) {
+        ownerId -> guestFinalMessage
+        guestId -> ownerFinalMessage
+        else -> null
+    }
+    return raw?.trim()?.takeIf { it.isNotEmpty() }
+}
+
+fun shouldShowInboxFinalMessage(message: String?, viewerId: String, dismissedBy: List<String>): Boolean =
+    !message.isNullOrBlank() && viewerId !in dismissedBy

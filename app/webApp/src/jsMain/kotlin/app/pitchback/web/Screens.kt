@@ -169,8 +169,18 @@ fun InboxScreen(t: T, user: PublicUser?, inbox: InboxDto, lang: AppLang, refresh
             Div({ classes("empty") }) { Text(t.signInInbox); GradButton(t.signIn) { go(Screen.Me) } }
             return@Div
         }
-        if (inbox.meets.isEmpty() && inbox.cancelledMeets.isEmpty() && inbox.incoming.isEmpty() && inbox.outgoing.isEmpty()) {
+        if (inbox.finalMessages.isEmpty() && inbox.meets.isEmpty() && inbox.cancelledMeets.isEmpty() && inbox.incoming.isEmpty() && inbox.outgoing.isEmpty()) {
             Div({ classes("empty") }) { Text(t.emptyInbox) }
+        }
+        if (inbox.finalMessages.isNotEmpty()) {
+            Div({ classes("section-title") }) { Text(t.finalMessages) }
+            inbox.finalMessages.forEach { meet ->
+                Div({ classes("inbox-card") }) {
+                    PersonDetails(meet.otherUser) { profileUser = meet.otherUser }
+                    meet.finalMessage?.let { msg -> P({ classes("preview") }) { Text(msg) } }
+                    GhostButton(t.dismiss) { scope.launch { runCatching { Api.dismissMeet(meet.id) }; refresh() } }
+                }
+            }
         }
         if (inbox.meets.isNotEmpty()) {
             Div({ classes("section-title") }) { Text(t.activeMeets) }

@@ -7,20 +7,17 @@ import app.pitchback.api.MeetDto
 import app.pitchback.api.NoShowDto
 import app.pitchback.api.PitchBackDto
 import app.pitchback.api.PitchCardDto
-import app.pitchback.api.PublicUser
 import app.pitchback.api.TopicDto
 import app.pitchback.api.UserAdminDto
 import app.pitchback.api.VerificationDto
-import app.pitchback.domain.STATUS_ACTIVE
 import app.pitchback.domain.meetEndedBy
+import app.pitchback.domain.otherFinalMessage
 import app.pitchback.domain.STATUS_APPROVED
-import app.pitchback.domain.STATUS_CANCELLED
 import app.pitchback.domain.STATUS_PENDING
 import app.pitchback.domain.phonesMatch
 import app.pitchback.domain.pitchIsPublic
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
 
 class Database(val arango: Arango) {
 
@@ -346,7 +343,13 @@ class Database(val arango: Arango) {
             locationName = location?.name ?: "",
             locationId = pitch?.locationId ?: "",
             allowSocialPosting = pitch?.allowSocialPosting == true,
-            finalMessage = if (meet.ownerId == viewerId) meet.ownerFinalMessage else meet.guestFinalMessage,
+            finalMessage = otherFinalMessage(
+                viewerId,
+                meet.ownerId,
+                meet.guestId,
+                meet.ownerFinalMessage,
+                meet.guestFinalMessage,
+            ),
             cancelledByName = cancelledBy,
             endedByMe = viewerId in meetEndedBy(meet.endedUserIds, meet.endedBy),
             myPhotoUrl = me?.photoUrl,

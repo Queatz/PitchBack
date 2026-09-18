@@ -203,6 +203,7 @@ data class MeetDto(
 
 @Serializable
 data class InboxDto(
+    val finalMessages: List<MeetDto> = emptyList(),
     val meets: List<MeetDto> = emptyList(),
     val cancelledMeets: List<MeetDto> = emptyList(),
     val incoming: List<PitchBackDto> = emptyList(),
