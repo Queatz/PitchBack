@@ -232,8 +232,12 @@ fun InboxScreen(t: T, user: PublicUser?, inbox: InboxDto, lang: AppLang, refresh
             Div({ classes("section-title") }) { Text(t.cancelledMeets) }
             inbox.cancelledMeets.forEach { meet ->
                 Div({ classes("inbox-card") }) {
-                    H3 { Text(meet.otherUser.name) }
-                    P { Text("${t.cancelledMeets}${meet.cancelledByName?.let { " · $it" } ?: ""}") }
+                    PersonDetails(meet.otherUser) { profileUser = meet.otherUser }
+                    P { Text(meet.cancelledByName?.let { t.canceledBy(it) } ?: t.cancelledMeets) }
+                    if (meet.locationName.isNotBlank()) {
+                        P({ classes("muted") }) { Text("📍 ${t.meetAt} ${meet.locationName}") }
+                    }
+                    MeetSlotLine(t, meet.slotAt)
                     GhostButton(t.dismiss) { scope.launch { runCatching { Api.dismissMeet(meet.id) }; refresh() } }
                 }
             }

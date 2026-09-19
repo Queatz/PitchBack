@@ -134,7 +134,7 @@ object AiStarters {
         lang,
         "They never arrived and didn't message." to "Họ không đến và không nhắn gì.",
         "I waited past the time we agreed and left." to "Tôi đợi quá giờ hẹn rồi ra về.",
-        "They cancelled only after I was already there." to "Họ hủy khi tôi đã có mặt.",
+        "They canceled only after I was already there." to "Họ hủy khi tôi đã có mặt.",
         "No reply after I confirmed I was at the place." to "Không trả lời sau khi tôi báo đã tới.",
         "They asked to move the time, then disappeared." to "Họ xin dời giờ rồi biến mất.",
         "I saw them nearby but they didn't come in." to "Tôi thấy họ gần đó nhưng không vào.",

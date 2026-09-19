@@ -415,7 +415,7 @@ html[data-theme="light"] .chip-topic { background: #efe8ff; color: #5b3bb8; }
   background: var(--pink);
 }
 .inbox-card.alt .accent { background: #4cc3ff; }
-.preview { color: var(--muted); font-size: 0.9rem; margin-bottom: 10px; padding-left: 10px; }
+.preview { color: var(--muted); font-size: 1.3rem; margin-bottom: 10px; padding-left: 10px; }
 .section-title {
   font-size: 0.8rem;
   text-transform: uppercase;

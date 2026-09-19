@@ -78,7 +78,7 @@ class T(val lang: AppLang) {
     val incoming get() = s("Incoming pitch backs", "Ngỏ lời đến")
     val outgoing get() = s("Your pitch backs", "Ngỏ lời của bạn")
     val activeMeets get() = s("Active meets", "Buổi hẹn đang mở")
-    val cancelledMeets get() = s("Cancelled", "Đã hủy")
+    val cancelledMeets get() = s("Canceled", "Đã hủy")
     val cancelMeet get() = s("Cancel meet", "Hủy buổi hẹn")
     val endMeet get() = s("Send final message & end", "Gửi tin nhắn cuối & kết thúc")
     val skipEnd get() = s("End without a message", "Kết thúc không nhắn")
@@ -175,6 +175,8 @@ class T(val lang: AppLang) {
         "You pitched back $name! Check your inbox for updates.",
         "Bạn đã ngỏ lời với $name! Kiểm tra hộp thư để theo dõi.",
     )
+
+    fun canceledBy(name: String): String = s("Canceled by $name", "Đã hủy bởi $name")
 
     fun closesAt(time: String): String = s("Closes $time", "Đóng lúc $time")
 
