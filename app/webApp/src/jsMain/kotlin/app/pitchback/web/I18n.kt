@@ -5,7 +5,7 @@ enum class AppLang { EN, VI }
 class T(val lang: AppLang) {
     private fun s(en: String, vi: String) = if (lang == AppLang.VI) vi else en
 
-    val appName get() = "Saigon.Social"
+    val appName get() = "ranh.app"
     val pitches get() = s("Pitches", "Lời ngỏ")
     val inbox get() = s("Inbox", "Hộp thư")
     val me get() = s("Me", "Tôi")

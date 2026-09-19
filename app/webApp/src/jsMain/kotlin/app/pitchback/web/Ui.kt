@@ -853,7 +853,7 @@ private suspend fun renderWeMetPng(leftUrl: String, rightUrl: String, caption: S
     ctx.fillText(caption, 360.0, 600.0)
     ctx.fillStyle = "#d4ff3f"
     ctx.font = "700 22px Be Vietnam Pro, sans-serif"
-    ctx.fillText("Saigon.Social", 360.0, 640.0)
+    ctx.fillText("ranh.app", 360.0, 640.0)
     ctx.restore()
     return canvas.toDataURL("image/png")
 }

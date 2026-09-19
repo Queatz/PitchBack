@@ -1,4 +1,4 @@
-# Saigon.Social
+# ranh.app
 
 A social talk-and-meet hub for Saigon. Browse newest pitches, pitch back, accept a meet, then send one final message. No chat thread.
 

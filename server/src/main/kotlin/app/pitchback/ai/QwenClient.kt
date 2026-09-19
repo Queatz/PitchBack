@@ -64,7 +64,7 @@ class QwenClient(private val config: AppConfig) {
                             put("role", "system")
                             put(
                                 "content",
-                                "You write natural copy for Saigon.Social, a social talk-and-meet app in Ho Chi Minh City. Keep it human, specific, and concise.",
+                                "You write natural copy for ranh.app, a social talk-and-meet app in Ho Chi Minh City. Keep it human, specific, and concise.",
                             )
                         },
                     )
