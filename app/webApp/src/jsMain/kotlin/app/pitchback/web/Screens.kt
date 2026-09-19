@@ -248,7 +248,7 @@ fun InboxScreen(t: T, user: PublicUser?, inbox: InboxDto, lang: AppLang, refresh
                 Div({ classes("inbox-card"); if (i % 2 == 1) classes("alt") }) {
                     PersonDetails(pb.fromUser) { profileUser = pb.fromUser }
                     P({ classes("preview") }) { Text("“${pb.pitchPreview}”") }
-                    P { Text(pb.text) }
+                    P({ classes("response") }) { Text(pb.text) }
                     P({ classes("muted") }) { Text("📍 ${t.meetAt} ${pb.locationName}") }
                     MeetSlotLine(t, pb.slotAt)
                     Div({ classes("row-btns") }) {
