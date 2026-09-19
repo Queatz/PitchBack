@@ -40,7 +40,6 @@ import org.jetbrains.compose.web.attributes.ButtonType
 import org.jetbrains.compose.web.attributes.InputType
 import org.jetbrains.compose.web.attributes.selected
 import org.jetbrains.compose.web.attributes.type
-import org.jetbrains.compose.web.attributes.value
 import org.jetbrains.compose.web.dom.Button
 import org.jetbrains.compose.web.dom.Div
 import org.jetbrains.compose.web.dom.H1
@@ -188,7 +187,7 @@ fun InboxScreen(t: T, user: PublicUser?, inbox: InboxDto, lang: AppLang, refresh
     Div {
         Div({ classes("topbar") }) { H1 { Text(t.inbox) } }
         if (user == null) {
-            Div({ classes("empty") }) { Text(t.signInInbox); GradButton(t.signIn) { go(Screen.Me) } }
+            Div({ classes("empty") }) { Text(t.signInInbox); Spacer(); GradButton(t.signIn) { go(Screen.Me) } }
             return@Div
         }
         if (inbox.finalMessages.isEmpty() && inbox.meets.isEmpty() && inbox.cancelledMeets.isEmpty() && inbox.incoming.isEmpty() && inbox.outgoing.isEmpty()) {
@@ -483,7 +482,7 @@ private fun ProfilePanel(
                 Button({ classes("btn", "btn-lime"); type(ButtonType.Button); attr("style", "width:auto"); onClick { go(Screen.Admin) } }) { Text(t.admin) }
             }
         }
-        Div({ classes("section-title") }) { Text("${t.myPitches} · 🔥 $remainingSlots") }
+        Div({ classes("section-title") }) { Text("${t.myPitches} · 🔥 $remainingSlots ${t.totalRemainingPitches}") }
         myPitches.forEach { p ->
             Div({ classes("card") }) {
                 Div({ classes("card-body") }) {

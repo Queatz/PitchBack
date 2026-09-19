@@ -547,7 +547,15 @@ html[data-theme="light"] .chip-topic { background: #efe8ff; color: #5b3bb8; }
 .highlight.c2 { color: var(--purple); }
 .person-card { display: flex; gap: 12px; align-items: center; margin: 6px 0 10px; }
 .person-card h3 { margin: 0; font-size: 1.05rem; }
-.person-card .intro { margin: 4px 0 0; color: var(--muted); font-size: 0.9rem; }
+.person-card .intro {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  max-width: 12rem;
+}
 .person-photo {
   width: 56px;
   height: 56px;

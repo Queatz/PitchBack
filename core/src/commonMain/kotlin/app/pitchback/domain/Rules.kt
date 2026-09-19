@@ -21,14 +21,18 @@ const val STATUS_REVIEWED = "reviewed"
 fun normalizePhone(raw: String): String? {
     val trimmed = raw.trim()
     if (trimmed.isEmpty()) return null
-    val digits = trimmed.filter { it.isDigit() }
-    if (digits.length < 8 || digits.length > 15) return null
-    return when {
-        trimmed.startsWith("+") -> "+$digits"
-        digits.startsWith("84") && digits.length >= 10 -> "+$digits"
-        digits.startsWith("0") && digits.length >= 9 -> "+84${digits.drop(1)}"
-        else -> "+$digits"
+    var digits = trimmed.filter { it.isDigit() }
+    if (digits.startsWith("00")) digits = digits.drop(2)
+    var nsn = digits
+    while (true) {
+        nsn = when {
+            nsn.startsWith("84") && nsn.length >= 11 -> nsn.drop(2)
+            nsn.startsWith("0") && nsn.length >= 9 -> nsn.drop(1)
+            else -> break
+        }
     }
+    if (nsn.length !in 9..10) return null
+    return "+84$nsn"
 }
 
 fun phonesMatch(a: String, b: String): Boolean {

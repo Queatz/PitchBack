@@ -58,6 +58,7 @@ class T(val lang: AppLang) {
     val approved get() = s("Live", "Đang mở")
     val dismissed get() = s("Dismissed", "Đã từ chối")
     val remaining get() = s("Remaining pitch backs", "Lượt ngỏ lời còn")
+    val totalRemainingPitches get() = s("Total remaining pitches", "Tổng lời ngỏ còn")
     val topic get() = s("Topic", "Chủ đề")
     val location get() = s("Location", "Địa điểm")
     val photos get() = s("Photos", "Ảnh")

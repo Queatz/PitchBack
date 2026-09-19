@@ -28,10 +28,17 @@ class RulesTest {
         assertEquals("+84912345678", normalizePhone("0912345678"))
         assertEquals("+84912345678", normalizePhone("+84 912 345 678"))
         assertEquals("+84912345678", normalizePhone("84912345678"))
+        assertEquals("+84708739214", normalizePhone("0708739214"))
+        assertEquals("+84708739214", normalizePhone("708739214"))
+        assertEquals("+84708739214", normalizePhone("+84 070 873 9214"))
+        assertEquals("+84708739214", normalizePhone("0084 708 739 214"))
+        assertEquals("+84708739214", normalizePhone("084708739214"))
         assertNull(normalizePhone("123"))
         assertNull(normalizePhone(""))
         assertTrue(phonesMatch("0912345678", "+84 912 345 678"))
         assertTrue(phonesMatch("84912345678", "0912 345 678"))
+        assertTrue(phonesMatch("0708739214", "708739214"))
+        assertTrue(phonesMatch("+708739214", "0708739214"))
         assertFalse(phonesMatch("0912345678", "0987654321"))
     }
 
