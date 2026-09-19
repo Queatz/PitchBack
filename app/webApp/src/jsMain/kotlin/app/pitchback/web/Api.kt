@@ -46,7 +46,11 @@ private fun langHeader(): String = if (requestLang.lowercase().startsWith("vi"))
 
 fun apiBase(): String {
     val loc = window.location
-    return if (loc.port == "8081") "${loc.protocol}//${loc.hostname}:8080" else ""
+    if (loc.port == "8081") return "${loc.protocol}//${loc.hostname}:8080"
+    val injected = js(
+        "((typeof window !== 'undefined' && typeof window.__API_BASE__ === 'string') ? window.__API_BASE__ : '')",
+    ) as String
+    return injected.trim().trimEnd('/')
 }
 
 fun assetUrl(path: String): String {
@@ -207,7 +211,7 @@ object Api {
                 val obj = runCatching { AppJson.parseToJsonElement(line) }.getOrNull() as? JsonObject
                 val err = obj?.get("error")?.jsonPrimitive?.content
                 val text = obj?.get("text")?.jsonPrimitive?.content
-                if (!err.isNullOrBlank() && obj?.containsKey("text") != true && obj?.containsKey("done") != true) {
+                if (!err.isNullOrBlank() && !obj.containsKey("text") && !obj.containsKey("done")) {
                     onError(err)
                 } else if (!text.isNullOrEmpty()) {
                     onChunk(text)

@@ -1,3 +1,4 @@
+import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpack
 import org.jetbrains.kotlin.gradle.targets.js.webpack.KotlinWebpackConfig
 
 plugins {
@@ -6,6 +7,14 @@ plugins {
     alias(libs.plugins.compose)
     alias(libs.plugins.composeCompiler)
 }
+
+// Resolve outside commonWebpackConfig: capturing Project/layout inside that
+// lambda breaks Gradle's configuration cache for jsBrowserProductionWebpack.
+val webDevServerStaticDir = layout.buildDirectory
+    .dir("processedResources/js/main")
+    .get()
+    .asFile
+    .absolutePath
 
 kotlin {
     js {
@@ -21,13 +30,7 @@ kotlin {
                 // returns Express's "Cannot GET /".
                 devServer = KotlinWebpackConfig.DevServer(
                     port = 8081,
-                    static = mutableListOf(
-                        layout.buildDirectory
-                            .dir("processedResources/js/main")
-                            .get()
-                            .asFile
-                            .absolutePath,
-                    ),
+                    static = mutableListOf(webDevServerStaticDir),
                 )
             }
         }
@@ -46,4 +49,10 @@ kotlin {
             implementation(libs.kotlinx.coroutines.core)
         }
     }
+}
+
+tasks.withType<KotlinWebpack>().configureEach {
+    notCompatibleWithConfigurationCache(
+        "Kotlin JS webpackConfigAppliers capture Gradle script objects",
+    )
 }

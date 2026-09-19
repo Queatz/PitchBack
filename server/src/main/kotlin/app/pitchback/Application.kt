@@ -46,7 +46,7 @@ import java.io.File
 
 fun main() {
     val config = AppConfig.load()
-    embeddedServer(Netty, port = config.port, host = "0.0.0.0", module = { module(config) })
+    embeddedServer(Netty, port = config.port, host = config.host, module = { module(config) })
         .start(wait = true)
 }
 
@@ -91,8 +91,8 @@ fun Application.module(config: AppConfig = AppConfig.load()) {
         allowHeader(HttpHeaders.AcceptLanguage)
         allowCredentials = true
         allowNonSimpleContentTypes = true
-        listOf("localhost:8081", "127.0.0.1:8081", "localhost:8080", "127.0.0.1:8080").forEach {
-            allowHost(it, schemes = listOf("http", "https"))
+        config.corsOrigins.forEach { origin ->
+            allowHost(origin.host, schemes = origin.schemes, subDomains = origin.subDomains)
         }
     }
     install(StatusPages) {
