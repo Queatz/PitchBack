@@ -38,7 +38,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.web.attributes.ButtonType
 import org.jetbrains.compose.web.attributes.InputType
-import org.jetbrains.compose.web.attributes.placeholder
 import org.jetbrains.compose.web.attributes.selected
 import org.jetbrains.compose.web.attributes.type
 import org.jetbrains.compose.web.attributes.value
@@ -583,7 +582,19 @@ private fun CreatePitchForm(
     }
     Div({ classes("field") }) {
         Label { Text(t.topic) }
-        TextInput(topic) { onInput { topic = it.value }; placeholder(topics.joinToString { it.topic }) }
+        TextInput(topic) { onInput { topic = it.value } }
+        if (topics.isNotEmpty()) {
+            Div({ classes("topic-chips") }) {
+                topics.forEach { item ->
+                    Button({
+                        classes("chip", "chip-topic")
+                        if (topic == item.topic) classes("on")
+                        type(ButtonType.Button)
+                        onClick { topic = item.topic }
+                    }) { Text(item.topic) }
+                }
+            }
+        }
     }
     Div({ classes("field") }) {
         Label { Text(t.location) }

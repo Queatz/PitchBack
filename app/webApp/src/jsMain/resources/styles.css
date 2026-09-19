@@ -314,6 +314,22 @@ img { max-width: 100%; display: block; }
 .chip-green { background: rgba(124, 255, 107, 0.16); color: var(--green); }
 .chip-topic { background: #3a2a6a; color: #d7c8ff; }
 html[data-theme="light"] .chip-topic { background: #efe8ff; color: #5b3bb8; }
+.topic-chips {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  overflow-x: auto;
+  padding-top: 6px;
+  -webkit-overflow-scrolling: touch;
+}
+.topic-chips .chip {
+  flex: 0 0 auto;
+  border: 0;
+  white-space: nowrap;
+}
+.topic-chips .chip.on {
+  outline: 2px solid currentColor;
+}
 .verified { color: var(--green); font-size: 18px; }
 
 .field { position: relative; margin: 10px 0; }
