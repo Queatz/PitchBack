@@ -572,6 +572,7 @@ private fun CreatePitchForm(
         Label { Text(t.remaining) }
         Div({ classes("grid-2") }) {
             Button({ classes("btn", "btn-ghost"); type(ButtonType.Button); onClick { remaining = (remaining - 1).coerceAtLeast(1) } }) { Text("−") }
+            Spacer()
             Button({ classes("btn", "btn-ghost"); type(ButtonType.Button); onClick { remaining = (remaining + 1).coerceAtMost(99) } }) { Text("+ $remaining") }
         }
     }

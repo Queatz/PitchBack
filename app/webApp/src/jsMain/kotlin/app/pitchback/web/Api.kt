@@ -29,6 +29,7 @@ import app.pitchback.api.VerificationDto
 import app.pitchback.api.VerificationRequestBody
 import kotlinx.browser.window
 import kotlinx.coroutines.await
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -36,6 +37,9 @@ import org.w3c.fetch.RequestCredentials
 import org.w3c.fetch.RequestInit
 import org.w3c.files.File
 import org.w3c.xhr.FormData
+import org.w3c.xhr.XMLHttpRequest
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 import kotlin.js.json
 
 class ApiError(message: String, val code: String) : RuntimeException(message)
@@ -157,12 +161,50 @@ object Api {
         request("/api/meets/$id/no-show", "POST", AppJson.encodeToString(NoShowRequest(message)))
     }
 
-    suspend fun upload(file: File): String {
+    suspend fun upload(file: File, onProgress: ((Double) -> Unit)? = null): String {
         val form = FormData()
         form.append("file", file)
-        val text = request("/api/uploads", "POST", form = form)
+        val text = uploadRequest(form, onProgress)
         return AppJson.decodeFromString(UploadResponse.serializer(), text).url
     }
+
+    private suspend fun uploadRequest(form: FormData, onProgress: ((Double) -> Unit)?): String =
+        suspendCancellableCoroutine { cont ->
+            val xhr = XMLHttpRequest()
+            xhr.open("POST", apiBase() + "/api/uploads")
+            xhr.withCredentials = true
+            xhr.setRequestHeader("Accept-Language", langHeader())
+            if (onProgress != null) {
+                xhr.upload.addEventListener("progress", { event ->
+                    val e = event.asDynamic()
+                    val total = (e.total as? Number)?.toDouble() ?: 0.0
+                    if (total > 0.0) {
+                        val loaded = (e.loaded as? Number)?.toDouble() ?: 0.0
+                        onProgress((loaded / total).coerceIn(0.0, 1.0))
+                    }
+                })
+            }
+            xhr.addEventListener("load", {
+                if (!cont.isActive) return@addEventListener
+                val text = xhr.responseText
+                if (xhr.status in 200..299) {
+                    cont.resume(text)
+                } else {
+                    val err = runCatching { AppJson.decodeFromString(ErrorBody.serializer(), text) }.getOrNull()
+                    cont.resumeWithException(
+                        ApiError(err?.error ?: text.ifBlank { "Request failed" }, err?.code ?: "ERROR"),
+                    )
+                }
+            })
+            xhr.addEventListener("error", {
+                if (cont.isActive) cont.resumeWithException(ApiError("Request failed", "ERROR"))
+            })
+            xhr.addEventListener("abort", {
+                if (cont.isActive) cont.resumeWithException(ApiError("Request failed", "ERROR"))
+            })
+            cont.invokeOnCancellation { xhr.abort() }
+            xhr.send(form)
+        }
 
     suspend fun adminPending(): AdminPendingDto = get("/api/admin/pending")
     suspend fun adminPitches(): FeedResponse = get("/api/admin/pitches")

@@ -447,20 +447,44 @@ fun PhotoPicker(
 ) {
     val scope = rememberCoroutineScope()
     var hover by remember { mutableStateOf(false) }
+    var uploading by remember { mutableStateOf(false) }
+    var uploadCurrent by remember { mutableStateOf(0) }
+    var uploadTotal by remember { mutableStateOf(0) }
+    var uploadFraction by remember { mutableStateOf(0.0) }
     fun ingest(files: FileList?) {
-        if (files == null || files.length == 0) return
-        scope.launch {
-            val next = if (multiple) urls.toMutableList() else mutableListOf()
+        if (uploading || files == null || files.length == 0) return
+        val items = buildList {
             val limit = if (multiple) files.length else minOf(files.length, 1)
-            for (i in 0 until limit) {
-                val f = files.get(i) ?: continue
-                try {
-                    next += Api.upload(f)
-                } catch (e: Throwable) {
-                    showNotice(e.message)
+            for (i in 0 until limit) add(files.get(i) ?: continue)
+        }
+        if (items.isEmpty()) return
+        uploading = true
+        uploadCurrent = 1
+        uploadTotal = items.size
+        uploadFraction = 0.0
+        scope.launch {
+            try {
+                val next = if (multiple) urls.toMutableList() else mutableListOf()
+                val weights = items.map { it.size.toDouble().coerceAtLeast(1.0) }
+                val totalWeight = weights.sum().coerceAtLeast(1.0)
+                var completed = 0.0
+                items.forEachIndexed { i, f ->
+                    uploadCurrent = i + 1
+                    try {
+                        next += Api.upload(f) { p ->
+                            uploadFraction = ((completed + p * weights[i]) / totalWeight).coerceIn(0.0, 1.0)
+                        }
+                        completed += weights[i]
+                        uploadFraction = (completed / totalWeight).coerceIn(0.0, 1.0)
+                        onUrls(if (multiple) next.toList() else next.takeLast(1))
+                    } catch (e: Throwable) {
+                        showNotice(e.message)
+                    }
                 }
+            } finally {
+                uploading = false
+                uploadFraction = 0.0
             }
-            onUrls(if (multiple) next else next.takeLast(1))
         }
     }
     Div({ classes("field") }) {
@@ -468,9 +492,10 @@ fun PhotoPicker(
         Label(attrs = {
             classes("drop-box")
             if (hover) classes("hover")
+            if (uploading) classes("uploading")
             onDragOver {
                 it.preventDefault()
-                hover = true
+                if (!uploading) hover = true
             }
             onDragLeave { hover = false }
             onDrop {
@@ -483,13 +508,34 @@ fun PhotoPicker(
                 classes("sr-only")
                 attr("accept", "image/*")
                 if (multiple) multiple()
+                if (uploading) attr("disabled", "true")
                 onChange {
                     val el = it.nativeEvent.target as? HTMLInputElement ?: return@onChange
                     ingest(el.files)
                     el.value = ""
                 }
             }
-            Text(if (multiple) t.dropPhotos else t.dropPhoto)
+            if (uploading) {
+                val pct = (uploadFraction * 100.0).toInt().coerceIn(0, 100)
+                Div({ classes("upload-status") }) {
+                    Text(t.uploadingOf(uploadCurrent, uploadTotal))
+                    Div({
+                        classes("upload-bar")
+                        attr("role", "progressbar")
+                        attr("aria-valuemin", "0")
+                        attr("aria-valuemax", "100")
+                        attr("aria-valuenow", pct.toString())
+                    }) {
+                        Div({
+                            classes("upload-bar-fill")
+                            attr("style", "width:$pct%")
+                        })
+                    }
+                    Span({ classes("upload-pct") }) { Text("$pct%") }
+                }
+            } else {
+                Text(if (multiple) t.dropPhotos else t.dropPhoto)
+            }
         }
         if (urls.isNotEmpty()) {
             Spacer()

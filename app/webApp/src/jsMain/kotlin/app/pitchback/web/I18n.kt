@@ -101,6 +101,14 @@ class T(val lang: AppLang) {
     val loading get() = s("Loading…", "Đang tải…")
     val dropPhotos get() = s("Drop photos here, or tap to choose", "Thả ảnh vào đây, hoặc chạm để chọn")
     val dropPhoto get() = s("Drop a photo here, or tap to choose", "Thả một ảnh vào đây, hoặc chạm để chọn")
+    val uploading get() = s("Uploading…", "Đang tải lên…")
+
+    fun uploadingOf(current: Int, total: Int): String = when {
+        total <= 1 -> uploading
+        lang == AppLang.VI -> "Đang tải $current/$total"
+        else -> "Uploading $current of $total"
+    }
+
     val highlights get() = s("Highlights", "Điểm nổi bật")
     val address get() = s("Address", "Địa chỉ")
     val directions get() = s("Directions", "Chỉ đường")
