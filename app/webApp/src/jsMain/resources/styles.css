@@ -41,8 +41,22 @@ html[data-theme="light"] {
 }
 
 * { box-sizing: border-box; }
-html, body, #root { margin: 0; min-height: 100%; }
-html { background-color: var(--bg); }
+html, body, #root {
+  margin: 0;
+  min-height: 100%;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+#root > * {
+  max-width: 100%;
+  min-width: 0;
+}
+html {
+  background-color: var(--bg);
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+}
 body {
   font-family: "Be Vietnam Pro", system-ui, sans-serif;
   background-color: var(--bg);
@@ -50,6 +64,7 @@ body {
   -webkit-font-smoothing: antialiased;
   min-height: 100dvh;
   overflow-x: hidden;
+  overscroll-behavior-x: none;
   isolation: isolate;
 }
 body::before {
@@ -68,13 +83,23 @@ img { max-width: 100%; display: block; }
 .app-shell {
   min-height: 100dvh;
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 .desktop-nav { display: none; }
 .main {
   width: min(100%, 560px);
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
   margin: 0 auto;
   padding: 12px 16px calc(92px + var(--safe-bottom));
+}
+.main > * {
+  min-width: 0;
+  max-width: 100%;
 }
 .topbar {
   display: flex;
@@ -186,6 +211,8 @@ img { max-width: 100%; display: block; }
   flex-direction: column;
   padding: 14px 14px 16px;
   flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .photo-scroller {
   position: relative;
@@ -195,6 +222,7 @@ img { max-width: 100%; display: block; }
   touch-action: pan-y;
   user-select: none;
   background: #000;
+  overscroll-behavior-x: contain;
 }
 .photo-track {
   display: flex;
@@ -422,6 +450,8 @@ html[data-theme="light"] .chip-topic { background: #efe8ff; color: #5b3bb8; }
   box-shadow: var(--shadow);
   animation: rise 0.35s ease both;
   position: relative;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .inbox-card .accent {
   position: absolute;
@@ -443,8 +473,10 @@ html[data-theme="light"] .chip-topic { background: #efe8ff; color: #5b3bb8; }
 
 .admin-tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
-  overflow-x: auto;
+  max-width: 100%;
+  min-width: 0;
   padding-top: 8px;
   padding-bottom: 8px;
 }
@@ -456,6 +488,8 @@ html[data-theme="light"] .chip-topic { background: #efe8ff; color: #5b3bb8; }
   padding: 8px 12px;
   white-space: nowrap;
   font-weight: 700;
+  width: auto;
+  max-width: 100%;
 }
 .admin-tabs button.on { background: var(--lime); color: var(--lime-text); }
 .pending-pill {
@@ -617,7 +651,7 @@ html[data-theme="light"] .chip-topic { background: #efe8ff; color: #5b3bb8; }
 .modal-scroll { max-height: 85vh; overflow: auto; }
 .sticker-img { width: min(100%, 360px); border-radius: 24px; margin: 0 auto 12px; }
 .photo-scroller.clickable { cursor: pointer; }
-.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.grid-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
 .muted { color: var(--muted); }
 .back-row { display: flex; align-items: center; gap: 8px; }
 .error { color: var(--danger); font-size: 0.86rem; }
@@ -726,7 +760,7 @@ html[data-theme="light"] .chip-topic { background: #efe8ff; color: #5b3bb8; }
 }
 
 @media (min-width: 900px) {
-  .app-shell { grid-template-columns: 240px 1fr; }
+  .app-shell { grid-template-columns: 240px minmax(0, 1fr); }
   .desktop-nav {
     display: flex;
     flex-direction: column;

@@ -18,12 +18,16 @@ import app.pitchback.api.WeeklyAvailability
 import app.pitchback.domain.DEFAULT_MEET_TIME
 import app.pitchback.domain.OfferedSlot
 import app.pitchback.domain.OpenStatus
+import app.pitchback.domain.applyPhotoWheel
 import app.pitchback.domain.availabilityFromMonFirst
 import app.pitchback.domain.condensedHours
 import app.pitchback.domain.formatMinutes
+import app.pitchback.domain.horizontalScrollDelta
 import app.pitchback.domain.monFirstDays
 import app.pitchback.domain.openStatus
 import app.pitchback.domain.parseMinutes
+import app.pitchback.domain.settlePhotoWheel
+import app.pitchback.domain.wheelDeltaPx
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.max
@@ -58,6 +62,7 @@ import org.w3c.dom.HTMLImageElement
 import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.events.Event
 import org.w3c.dom.events.MouseEvent
+import org.w3c.dom.events.WheelEvent
 import org.w3c.files.FileList
 import org.w3c.files.get
 import kotlin.coroutines.resume
@@ -88,13 +93,29 @@ fun PhotoScroller(urls: List<String>, onOpen: (() -> Unit)? = null) {
     var startX by remember { mutableStateOf(0.0) }
     var dragging by remember { mutableStateOf(false) }
     var drag by remember { mutableStateOf(0.0) }
+    var scrubbing by remember { mutableStateOf(false) }
+    var viewport by remember { mutableStateOf(1.0) }
+    val session = remember { PhotoWheelSession() }
+    session.lastIndex = urls.lastIndex
+    session.index = index
+    session.drag = drag
+    session.setState = { i, d, dragOn, scrub ->
+        index = i
+        drag = d
+        dragging = dragOn
+        scrubbing = scrub
+        viewport = session.width
+    }
     fun step(delta: Int) {
+        session.cancelSettle()
         index = (index + delta).coerceIn(0, urls.lastIndex)
         drag = 0.0
         dragging = false
+        scrubbing = false
+        session.sync(index, 0.0, false)
     }
     fun finishDrag() {
-        if (!dragging) return
+        if (!dragging || scrubbing) return
         when {
             drag > 50 -> step(-1)
             drag < -50 -> step(1)
@@ -102,30 +123,47 @@ fun PhotoScroller(urls: List<String>, onOpen: (() -> Unit)? = null) {
         }
         drag = 0.0
         dragging = false
+        session.sync(index, 0.0, false)
+    }
+    DisposableEffect(Unit) {
+        onDispose { session.cancel() }
     }
     Div({
         classes("photo-scroller")
         if (onOpen != null) classes("clickable")
+        ref { el ->
+            session.attach(el)
+            onDispose { session.detach(el) }
+        }
         onMouseDown {
+            session.cancelSettle()
+            scrubbing = false
+            drag = 0.0
             dragging = true
             startX = it.clientX.toDouble()
+            session.sync(index, 0.0, true)
         }
         onMouseMove {
-            if (dragging) drag = it.clientX.toDouble() - startX
+            if (dragging && !scrubbing) drag = it.clientX.toDouble() - startX
         }
         onMouseUp { finishDrag() }
         onMouseLeave {
+            if (scrubbing) return@onMouseLeave
             dragging = false
             drag = 0.0
         }
         onTouchStart {
             val t = it.touches.item(0) ?: return@onTouchStart
+            session.cancelSettle()
+            scrubbing = false
+            drag = 0.0
             dragging = true
             startX = t.clientX.toDouble()
+            session.sync(index, 0.0, true)
         }
         onTouchMove {
             val t = it.touches.item(0) ?: return@onTouchMove
-            if (dragging) drag = t.clientX.toDouble() - startX
+            if (dragging && !scrubbing) drag = t.clientX.toDouble() - startX
         }
         onTouchEnd { finishDrag() }
         onClick {
@@ -137,7 +175,12 @@ fun PhotoScroller(urls: List<String>, onOpen: (() -> Unit)? = null) {
         Div({
             classes("photo-track")
             if (dragging) classes("dragging")
-            val pct = -(index * 100.0) + if (dragging) (drag / 4.0) else 0.0
+            val live = when {
+                !dragging -> 0.0
+                scrubbing -> (drag / viewport.coerceAtLeast(1.0)) * 100.0
+                else -> drag / 4.0
+            }
+            val pct = -(index.coerceIn(0, urls.lastIndex) * 100.0) + live
             attr("style", "transform:translateX(${pct}%)")
         }) {
             urls.forEach { url ->
@@ -159,10 +202,83 @@ fun PhotoScroller(urls: List<String>, onOpen: (() -> Unit)? = null) {
             }) { Text("›") }
             Div({ classes("dots") }) {
                 urls.forEachIndexed { i, _ ->
-                    Div({ classes("dot"); if (i == index) classes("on") })
+                    Div({ classes("dot"); if (i == index.coerceIn(0, urls.lastIndex)) classes("on") })
                 }
             }
         }
+    }
+}
+
+private class PhotoWheelSession {
+    var lastIndex: Int = 0
+    var index: Int = 0
+    var drag: Double = 0.0
+    var width: Double = 1.0
+    var setState: (Int, Double, Boolean, Boolean) -> Unit = { _, _, _, _ -> }
+    var element: HTMLElement? = null
+    private var settleId: Int = 0
+    private var listening: Boolean = false
+    private val onWheel: (Event) -> Unit = { wheel(it) }
+
+    fun attach(el: HTMLElement) {
+        if (element === el && listening) return
+        element?.let { unlisten(it) }
+        element = el
+        listening = true
+        el.asDynamic().addEventListener("wheel", onWheel, js("{ passive: false }"))
+    }
+
+    fun detach(el: HTMLElement) {
+        if (element !== el) return
+        cancelSettle()
+        unlisten(el)
+        element = null
+    }
+
+    fun cancel() {
+        cancelSettle()
+        element?.let { unlisten(it) }
+        element = null
+    }
+
+    fun cancelSettle() {
+        if (settleId == 0) return
+        window.clearTimeout(settleId)
+        settleId = 0
+    }
+
+    fun sync(index: Int, drag: Double, dragging: Boolean) {
+        this.index = index
+        this.drag = drag
+        if (!dragging) cancelSettle()
+    }
+
+    private fun unlisten(el: HTMLElement) {
+        if (!listening) return
+        listening = false
+        el.removeEventListener("wheel", onWheel)
+    }
+
+    private fun wheel(event: Event) {
+        val w = event as? WheelEvent ?: return
+        if (w.ctrlKey) return
+        val raw = horizontalScrollDelta(w.deltaX, w.deltaY, w.shiftKey) ?: return
+        if (lastIndex <= 0) return
+        event.preventDefault()
+        width = (element?.clientWidth?.toDouble() ?: 0.0).coerceAtLeast(1.0)
+        val delta = wheelDeltaPx(raw, w.deltaMode, width)
+        val next = applyPhotoWheel(index, drag, delta, lastIndex, width)
+        index = next.index
+        drag = next.drag
+        setState(index, drag, true, true)
+        cancelSettle()
+        settleId = window.setTimeout({
+            settleId = 0
+            val snapped = settlePhotoWheel(index, drag, lastIndex, width)
+            index = snapped
+            drag = 0.0
+            setState(snapped, 0.0, false, false)
+        }, 120)
     }
 }
 
@@ -1078,7 +1194,7 @@ fun LocationPickerDialog(
                     onInput { q = it.value }
                 }
             }
-            if (filtered.isEmpty()) P({ classes("muted") }) { Text(t.emptyFeed) }
+            if (filtered.isEmpty()) P({ classes("muted") }) { Text(t.emptyLocations) }
             filtered.forEach { loc ->
                 LocationBlock(t, loc, selectLabel = t.chooseThisPlace, onSelect = { onPick(loc) })
             }

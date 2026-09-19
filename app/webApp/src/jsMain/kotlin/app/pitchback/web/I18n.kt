@@ -39,6 +39,7 @@ class T(val lang: AppLang) {
     val signInToPitch get() = s("Sign in to pitch back", "Đăng nhập để ngỏ lời")
     val signInInbox get() = s("Sign in to see pitch backs and meets.", "Đăng nhập để xem ngỏ lời và buổi hẹn.")
     val emptyFeed get() = s("No pitches yet. Be the first — or ask an admin to add a location.", "Chưa có lời ngỏ nào. Hãy tạo lời ngỏ đầu tiên — hoặc nhờ admin thêm địa điểm.")
+    val emptyLocations get() = s("No locations yet. Ask an admin to add one.", "Chưa có địa điểm nào. Nhờ admin thêm một địa điểm.")
     val emptyInbox get() = s("Nothing waiting. Pitch back on a live pitch to start a meet.", "Chưa có gì. Ngỏ lời trên một lời ngỏ đang mở để bắt đầu buổi hẹn.")
     val enterPitch get() = s("Enter your pitch here...", "Nhập lời ngỏ của bạn...")
     val generateAi get() = s("Write with AI", "Viết bằng AI")
