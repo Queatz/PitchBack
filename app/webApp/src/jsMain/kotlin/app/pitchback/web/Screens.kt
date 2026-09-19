@@ -30,9 +30,11 @@ import app.pitchback.api.WeeklyAvailability
 import app.pitchback.domain.OfferedSlot
 import app.pitchback.domain.PITCH_BACK_TEXT_MIN
 import app.pitchback.domain.PITCH_TEXT_MIN
+import app.pitchback.domain.meetTimeHasStarted
 import app.pitchback.domain.nextOfferedSlots
 import app.pitchback.domain.validateAvailability
 import kotlin.js.Date
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.web.attributes.ButtonType
 import org.jetbrains.compose.web.attributes.InputType
@@ -176,6 +178,14 @@ fun InboxScreen(t: T, user: PublicUser?, inbox: InboxDto, lang: AppLang, refresh
     var noShowText by remember { mutableStateOf("") }
     var noShowBusy by remember { mutableStateOf(false) }
     var profileUser by remember { mutableStateOf<PublicUser?>(null) }
+    var nowMs by remember { mutableStateOf(Date.now().toLong()) }
+    LaunchedEffect(inbox.meets) {
+        while (true) {
+            nowMs = Date.now().toLong()
+            val next = inbox.meets.mapNotNull { it.slotAt }.filter { it > nowMs }.minOrNull() ?: break
+            delay((next - nowMs).coerceIn(250L, 30_000L))
+        }
+    }
     Div {
         Div({ classes("topbar") }) { H1 { Text(t.inbox) } }
         if (user == null) {
@@ -203,12 +213,15 @@ fun InboxScreen(t: T, user: PublicUser?, inbox: InboxDto, lang: AppLang, refresh
                     P({ classes("preview") }) { Text(meet.pitchPreview) }
                     P({ classes("muted") }) { Text("📍 ${t.meetAt} ${meet.locationName}") }
                     MeetSlotLine(t, meet.slotAt)
+                    val meetStarted = meetTimeHasStarted(meet.slotAt, nowMs)
                     Div({ classes("row-btns") }) {
-                        GradButton(t.endMeet) { endId = meet.id }
+                        if (meetStarted) {
+                            GradButton(t.endMeet) { endId = meet.id }
+                        }
                         GhostButton(t.cancelMeet) { scope.launch { runCatching { Api.cancelMeet(meet.id) }; refresh() } }
                         if (meet.reportedNoShow) {
                             P({ classes("muted") }) { Text(t.reportedNoShow) }
-                        } else {
+                        } else if (meetStarted) {
                             GhostButton(t.noShow) { noShowMeet = meet; noShowText = "" }
                         }
                     }

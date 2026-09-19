@@ -148,7 +148,7 @@ class T(val lang: AppLang) {
     val pickTimeSlot get() = s("Pick a time to meet", "Chọn giờ gặp mặt")
     val nextTimes get() = s("Next times", "Giờ gần nhất")
     val meetAt get() = s("Meet at", "Gặp tại")
-    val meetOn get() = s("Meet at", "Gặp lúc")
+    val meetOn get() = s("Meet on", "Gặp lúc")
     val noTimes get() = s("No upcoming times on this pitch", "Lời ngỏ này chưa có giờ trống")
     val months: List<String>
         get() = if (lang == AppLang.VI) {

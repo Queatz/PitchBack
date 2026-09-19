@@ -50,6 +50,7 @@ import app.pitchback.domain.canPitchBackOnOwnPitch
 import app.pitchback.domain.endMeetForUser
 import app.pitchback.domain.meetActiveForUser
 import app.pitchback.domain.meetEndedBy
+import app.pitchback.domain.meetTimeHasStarted
 import app.pitchback.domain.otherFinalMessage
 import app.pitchback.domain.shouldShowInboxFinalMessage
 import app.pitchback.domain.isAdminOnCreate
@@ -535,7 +536,7 @@ fun Route.api(app: AppContext) {
         val meet = db.meetById(call.parameters["id"].orEmpty()) ?: throw ApiException.notFound()
         if (meet.ownerId != user.key && meet.guestId != user.key) throw ApiException.forbidden()
         val already = meetEndedBy(meet.endedUserIds, meet.endedBy)
-        if (!canEndMeet(meet.status, already, user.key)) {
+        if (!canEndMeet(meet.status, already, user.key) || !meetTimeHasStarted(meet.slotAt, app.now())) {
             throw ApiException.bad("STATUS", "MEET_INACTIVE")
         }
         val message = call.receive<EndMeetRequest>().message.trim()
@@ -573,7 +574,7 @@ fun Route.api(app: AppContext) {
         val meet = db.meetById(call.parameters["id"].orEmpty()) ?: throw ApiException.notFound()
         if (meet.ownerId != user.key && meet.guestId != user.key) throw ApiException.forbidden()
         val already = db.noShowByMeetAndReporter(meet.key, user.key) != null
-        if (!canReportNoShow(already, meet.status)) {
+        if (!canReportNoShow(already, meet.status) || !meetTimeHasStarted(meet.slotAt, app.now())) {
             throw ApiException.bad(
                 if (already) "DUPLICATE" else "STATUS",
                 if (already) "NOSHOW_DUPLICATE" else "MEET_INACTIVE",

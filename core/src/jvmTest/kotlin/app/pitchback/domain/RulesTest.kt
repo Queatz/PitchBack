@@ -146,6 +146,15 @@ class RulesTest {
     }
 
     @Test
+    fun endAndNoShowWaitUntilMeetTime() {
+        val slot = 1_000L
+        assertFalse(meetTimeHasStarted(slot, 999))
+        assertTrue(meetTimeHasStarted(slot, 1_000))
+        assertTrue(meetTimeHasStarted(slot, 1_001))
+        assertTrue(meetTimeHasStarted(null, 0))
+    }
+
+    @Test
     fun hoursOpenNowAndCondensed() {
         val hours = OpeningHours()
         assertTrue(isOpenAt(hours, 1, 12 * 60))

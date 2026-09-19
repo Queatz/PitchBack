@@ -120,6 +120,9 @@ fun meetActiveForUser(status: String, endedUserIds: List<String>, userId: String
 fun canEndMeet(status: String, endedUserIds: List<String>, userId: String): Boolean =
     meetActiveForUser(status, endedUserIds, userId)
 
+fun meetTimeHasStarted(slotAt: Long?, now: Long): Boolean =
+    slotAt == null || now >= slotAt
+
 fun canReportNoShow(alreadyReported: Boolean, meetStatus: String): Boolean =
     !alreadyReported && meetStatus != STATUS_CANCELLED
 
