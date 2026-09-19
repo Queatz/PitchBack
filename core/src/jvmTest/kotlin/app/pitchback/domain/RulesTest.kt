@@ -213,4 +213,27 @@ class RulesTest {
         assertEquals("SLOT_INVALID", validateChosenSlot(now + 1, slots))
         assertNull(validateChosenSlot(slots[0].at, slots))
     }
+
+    @Test
+    fun nextSlotsSkipTimesTakenByPitchBacksOrMeets() {
+        val now = OffsetDateTime.of(2026, 9, 18, 21, 8, 0, 0, ZoneOffset.ofHours(7))
+            .toInstant().toEpochMilli()
+        val avail = WeeklyAvailability(fri = listOf("18:00", "22:00"), sat = listOf("10:00"))
+        val open = nextOfferedSlots(avail, now)
+        assertEquals(listOf("22:00", "10:00", "18:00"), open.map { it.time })
+
+        val taken = setOf(open[0].at, open[1].at)
+        val slots = nextOfferedSlots(avail, now, takenAts = taken)
+        assertEquals(3, slots.size)
+        assertEquals("18:00", slots[0].time)
+        assertEquals("22:00", slots[1].time)
+        assertEquals("10:00", slots[2].time)
+        assertTrue(slots.none { it.at in taken })
+
+        val nextFriday = Instant.ofEpochMilli(slots[1].at).atOffset(ZoneOffset.ofHours(7))
+        assertEquals(DayOfWeek.FRIDAY, nextFriday.dayOfWeek)
+        assertEquals(22, nextFriday.hour)
+        val weekAhead = nextFriday.toInstant().toEpochMilli() - open[0].at
+        assertEquals(7 * 86_400_000L, weekAhead)
+    }
 }

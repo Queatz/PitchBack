@@ -70,6 +70,7 @@ fun nextOfferedSlots(
     count: Int = OFFERED_SLOT_COUNT,
     availableUntil: Long? = null,
     utcOffsetMinutes: Int = ICT_OFFSET_MINUTES,
+    takenAts: Set<Long> = emptySet(),
 ): List<OfferedSlot> {
     val offsetMs = utcOffsetMinutes * 60_000L
     val dayMs = 86_400_000L
@@ -89,6 +90,7 @@ fun nextOfferedSlots(
             val at = idx * dayMs + mins * 60_000L - offsetMs
             if (at <= nowMs) continue
             if (availableUntil != null && at > availableUntil) continue
+            if (at in takenAts) continue
             out += OfferedSlot(at, label)
             if (out.size >= count) return out
         }

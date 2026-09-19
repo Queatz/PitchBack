@@ -27,6 +27,7 @@ import app.pitchback.api.UpdateProfileRequest
 import app.pitchback.api.UserAdminDto
 import app.pitchback.api.VerificationDto
 import app.pitchback.api.WeeklyAvailability
+import app.pitchback.domain.OfferedSlot
 import app.pitchback.domain.PITCH_BACK_TEXT_MIN
 import app.pitchback.domain.PITCH_TEXT_MIN
 import app.pitchback.domain.nextOfferedSlots
@@ -138,7 +139,7 @@ fun PitchScreen(t: T, id: String, user: PublicUser?, lang: AppLang) {
                 } else if (user == null) {
                     GradButton(t.signInToPitch) { go(Screen.Me) }
                 } else {
-                    val slots = nextOfferedSlots(c.availability, Date.now().toLong(), availableUntil = c.availableUntil)
+                    val slots = c.nextSlots.map { OfferedSlot(it.at, it.time) }
                     SlotPicker(t, slots, selectedAt) { selectedAt = it }
                     AiField(t, t.pitchBack, text, { text = it }, "pitchBack", t.enterPitch, null, lang, PITCH_BACK_TEXT_MIN)
                     GradButton("${t.pitchBack} ⚡", flash) {
@@ -579,7 +580,7 @@ private fun CreatePitchForm(
     if (preview.isNotEmpty()) {
         Div({ classes("hint") }) { Text(t.nextTimes) }
         preview.forEach { slot ->
-            P({ classes("slot-preview") }) { Text(formatMeetSlot(t, slot.at)) }
+            P({ classes("slot-preview") }) { Text("⏱ " + formatMeetSlot(t, slot.at)) }
         }
     }
     if (pickOpen) {

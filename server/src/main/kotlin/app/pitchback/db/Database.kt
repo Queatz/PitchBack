@@ -15,6 +15,7 @@ import app.pitchback.domain.meetEndedBy
 import app.pitchback.domain.nextOfferedSlots
 import app.pitchback.domain.normalizeAvailability
 import app.pitchback.domain.otherFinalMessage
+import app.pitchback.domain.STATUS_ACTIVE
 import app.pitchback.domain.STATUS_APPROVED
 import app.pitchback.domain.STATUS_PENDING
 import app.pitchback.domain.phonesMatch
@@ -179,6 +180,26 @@ class Database(val arango: Arango) {
             mapOf("status" to v(STATUS_PENDING), "now" to v(now)),
         )
 
+    suspend fun takenSlotAtsForUser(userId: String, now: Long): Set<Long> {
+        val pending: List<PitchBackRecord> = arango.queryList(
+            """
+            FOR p IN pitchBacks
+              FILTER p.status == @status AND p.toUserId == @id AND p.expiresAt > @now
+              RETURN p
+            """.trimIndent(),
+            mapOf("id" to v(userId), "status" to v(STATUS_PENDING), "now" to v(now)),
+        )
+        val meets: List<MeetRecord> = arango.queryList(
+            """
+            FOR m IN meets
+              FILTER m.status == @status AND (m.ownerId == @id OR m.guestId == @id)
+              RETURN m
+            """.trimIndent(),
+            mapOf("id" to v(userId), "status" to v(STATUS_ACTIVE)),
+        )
+        return (pending.mapNotNull { it.slotAt } + meets.mapNotNull { it.slotAt }).toSet()
+    }
+
     suspend fun insertMeet(doc: MeetRecord): MeetRecord = arango.insert("meets", doc)
 
     suspend fun meetById(id: String): MeetRecord? =
@@ -294,6 +315,7 @@ class Database(val arango: Arango) {
             }
         }
         val availability = normalizeAvailability(pitch.availability)
+        val taken = takenSlotAtsForUser(pitch.authorId, now)
         return PitchCardDto(
             id = pitch.key,
             text = pitch.text,
@@ -308,8 +330,12 @@ class Database(val arango: Arango) {
             location = locationDto,
             isOwner = viewerId == pitch.authorId,
             availability = availability,
-            nextSlots = nextOfferedSlots(availability, now, availableUntil = pitch.availableUntil)
-                .map { OfferedSlotDto(it.at, it.time) },
+            nextSlots = nextOfferedSlots(
+                availability,
+                now,
+                availableUntil = pitch.availableUntil,
+                takenAts = taken,
+            ).map { OfferedSlotDto(it.at, it.time) },
         )
     }
 

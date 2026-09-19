@@ -431,7 +431,13 @@ fun Route.api(app: AppContext) {
         validatePitchBackText(body.text)?.let {
             throw ApiException.bad(it, it)
         }
-        val offered = nextOfferedSlots(pitch.availability, now, availableUntil = pitch.availableUntil)
+        val taken = db.takenSlotAtsForUser(pitch.authorId, now)
+        val offered = nextOfferedSlots(
+            pitch.availability,
+            now,
+            availableUntil = pitch.availableUntil,
+            takenAts = taken,
+        )
         validateChosenSlot(body.slotAt, offered)?.let { throw ApiException.bad(it, it) }
         if (db.existingPendingPitchBack(pitch.key, user.key) != null) {
             throw ApiException.conflict("EXISTS", "PITCH_BACK_EXISTS")
