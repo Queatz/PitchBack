@@ -1,8 +1,10 @@
 package app.pitchback.web
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -51,8 +53,11 @@ import org.jetbrains.compose.web.dom.TextArea
 import org.w3c.dom.CanvasRenderingContext2D
 import org.w3c.dom.HTMLAnchorElement
 import org.w3c.dom.HTMLCanvasElement
+import org.w3c.dom.HTMLElement
 import org.w3c.dom.HTMLImageElement
 import org.w3c.dom.HTMLInputElement
+import org.w3c.dom.events.Event
+import org.w3c.dom.events.MouseEvent
 import org.w3c.files.FileList
 import org.w3c.files.get
 import kotlin.coroutines.resume
@@ -145,12 +150,12 @@ fun PhotoScroller(urls: List<String>, onOpen: (() -> Unit)? = null) {
             Button({
                 classes("scroller-btn", "prev")
                 type(ButtonType.Button)
-                onClick { it.stopPropagation(); step(-1) }
+                onClick { it.stopPropagation(); it.preventDefault(); step(-1) }
             }) { Text("‹") }
             Button({
                 classes("scroller-btn", "next")
                 type(ButtonType.Button)
-                onClick { it.stopPropagation(); step(1) }
+                onClick { it.stopPropagation(); it.preventDefault(); step(1) }
             }) { Text("›") }
             Div({ classes("dots") }) {
                 urls.forEachIndexed { i, _ ->
@@ -372,51 +377,7 @@ fun PhotoPicker(
         }
         if (urls.isNotEmpty()) {
             Spacer()
-            Div({ classes("photo-thumbs") }) {
-                urls.forEachIndexed { index, url ->
-                    Div({
-                        classes("photo-thumb")
-                        attr("draggable", "true")
-                        onDragStart {
-                            draggingPhotoIndex = index
-                            val dt = it.nativeEvent.asDynamic().dataTransfer
-                            try {
-                                dt.setData("text/plain", index.toString())
-                                dt.effectAllowed = "move"
-                            } catch (_: Throwable) {
-                            }
-                        }
-                        onDragOver { it.preventDefault() }
-                        onDrop {
-                            it.preventDefault()
-                            val from = draggingPhotoIndex ?: run {
-                                val dt = it.nativeEvent.asDynamic().dataTransfer
-                                try {
-                                    dt.getData("text/plain").toString().toIntOrNull()
-                                } catch (_: Throwable) {
-                                    null
-                                }
-                            } ?: return@onDrop
-                            draggingPhotoIndex = null
-                            if (from == index) return@onDrop
-                            val next = urls.toMutableList()
-                            val item = next.removeAt(from)
-                            next.add(index, item)
-                            onUrls(next)
-                        }
-                    }) {
-                        Img(src = assetUrl(url), alt = "") { attr("draggable", "false") }
-                        Button({
-                            classes("photo-del")
-                            type(ButtonType.Button)
-                            onClick { ev ->
-                                ev.stopPropagation()
-                                onUrls(urls.filterIndexed { i, _ -> i != index })
-                            }
-                        }) { Text("✕") }
-                    }
-                }
-            }
+            PhotoThumbs(urls, onUrls)
             if (multiple) {
                 Spacer()
                 PhotoScroller(urls)
@@ -426,12 +387,346 @@ fun PhotoPicker(
 }
 
 @Composable
+private fun PhotoThumbs(urls: List<String>, onUrls: (List<String>) -> Unit) {
+    var drag by remember { mutableStateOf<PhotoThumbDrag?>(null) }
+    val session = remember { PhotoThumbSession() }
+    session.urls = urls
+    session.onUrls = onUrls
+    session.setDrag = { drag = it }
+
+    DisposableEffect(Unit) {
+        onDispose { session.cancel() }
+    }
+    DisposableEffect(drag?.over) {
+        val id = window.requestAnimationFrame {
+            val el = session.container ?: return@requestAnimationFrame
+            session.rects = animateThumbRects(el, session.rects)
+        }
+        onDispose { window.cancelAnimationFrame(id) }
+    }
+
+    val display = if (drag == null) urls else movedPhotoUrls(urls, drag!!.from, drag!!.over)
+    Div({
+        classes("photo-thumbs")
+        if (drag != null) classes("dragging")
+        ref { el ->
+            session.container = el
+            onDispose { if (session.container === el) session.container = null }
+        }
+    }) {
+        display.forEachIndexed { index, url ->
+            val isSlot = drag != null && index == drag!!.over
+            key(url) {
+                Div({
+                    classes("photo-thumb")
+                    if (isSlot) classes("slot")
+                    attr("data-thumb", url)
+                    attr("draggable", "false")
+                    onDragStart { it.preventDefault() }
+                    onMouseDown { ev ->
+                        if (ev.button.toInt() != 0) return@onMouseDown
+                        val target = (ev.nativeEvent.currentTarget as? HTMLElement) ?: return@onMouseDown
+                        session.press(indexForUrl(urls, url), ev.clientX.toDouble(), ev.clientY.toDouble(), target)
+                    }
+                    onTouchStart { ev ->
+                        val t = ev.touches.item(0) ?: return@onTouchStart
+                        val target = (ev.nativeEvent.currentTarget as? HTMLElement) ?: return@onTouchStart
+                        session.press(indexForUrl(urls, url), t.clientX.toDouble(), t.clientY.toDouble(), target)
+                        ev.preventDefault()
+                    }
+                }) {
+                    Img(src = assetUrl(url), alt = "") { attr("draggable", "false") }
+                    Button({
+                        classes("photo-del")
+                        type(ButtonType.Button)
+                        onMouseDown { it.stopPropagation() }
+                        onTouchStart { it.stopPropagation() }
+                        onClick { ev ->
+                            ev.stopPropagation()
+                            val original = indexForUrl(urls, url)
+                            if (original >= 0) onUrls(urls.filterIndexed { i, _ -> i != original })
+                        }
+                    }) { Text("✕") }
+                }
+            }
+        }
+    }
+    val active = drag
+    if (active != null && active.from in urls.indices) {
+        Div({
+            classes("photo-thumb", "ghost")
+            attr(
+                "style",
+                "left:${active.pointerX - active.grabX}px;top:${active.pointerY - active.grabY}px;" +
+                    "width:${active.width}px;height:${active.height}px",
+            )
+            ref { el ->
+                session.ghost = el
+                onDispose { if (session.ghost === el) session.ghost = null }
+            }
+        }) {
+            Img(src = assetUrl(urls[active.from]), alt = "") { attr("draggable", "false") }
+        }
+    }
+}
+
+private data class PhotoThumbDrag(
+    val from: Int,
+    val over: Int,
+    val pointerX: Double,
+    val pointerY: Double,
+    val grabX: Double,
+    val grabY: Double,
+    val width: Double,
+    val height: Double,
+)
+
+private class PhotoThumbSession {
+    var urls: List<String> = emptyList()
+    var onUrls: (List<String>) -> Unit = {}
+    var container: HTMLElement? = null
+    var ghost: HTMLElement? = null
+    var drag: PhotoThumbDrag? = null
+    var setDrag: (PhotoThumbDrag?) -> Unit = {}
+    var rects: Map<String, Pair<Double, Double>> = emptyMap()
+    private var pressFrom: Int = -1
+    private var pressX: Double = 0.0
+    private var pressY: Double = 0.0
+    private var grabX: Double = 0.0
+    private var grabY: Double = 0.0
+    private var width: Double = 0.0
+    private var height: Double = 0.0
+    private var started: Boolean = false
+    private var listening: Boolean = false
+    private val onMove: (Event) -> Unit = { move(it) }
+    private val onUp: (Event) -> Unit = { finish() }
+
+    fun press(index: Int, x: Double, y: Double, target: HTMLElement) {
+        if (started || index !in urls.indices) return
+        val r = target.getBoundingClientRect()
+        pressFrom = index
+        pressX = x
+        pressY = y
+        grabX = x - r.left
+        grabY = y - r.top
+        width = r.width
+        height = r.height
+        started = false
+        drag = null
+        listen()
+    }
+
+    fun cancel() {
+        unlisten()
+        started = false
+        drag = null
+        clearThumbMotion(container)
+        setDrag(null)
+    }
+
+    private fun listen() {
+        if (listening) return
+        listening = true
+        window.addEventListener("mousemove", onMove)
+        window.addEventListener("mouseup", onUp)
+        window.asDynamic().addEventListener("touchmove", onMove, js("{ passive: false }"))
+        window.addEventListener("touchend", onUp)
+        window.addEventListener("touchcancel", onUp)
+    }
+
+    private fun unlisten() {
+        if (!listening) return
+        listening = false
+        window.removeEventListener("mousemove", onMove)
+        window.removeEventListener("mouseup", onUp)
+        window.removeEventListener("touchmove", onMove)
+        window.removeEventListener("touchend", onUp)
+        window.removeEventListener("touchcancel", onUp)
+    }
+
+    private fun move(event: Event) {
+        val point = pointerPoint(event) ?: return
+        val x = point.first
+        val y = point.second
+        var current = drag
+        if (current == null) {
+            if (abs(x - pressX) < 8 && abs(y - pressY) < 8) return
+            event.preventDefault()
+            rects = captureThumbRects(container)
+            current = PhotoThumbDrag(pressFrom, pressFrom, x, y, grabX, grabY, width, height)
+            started = true
+            drag = current
+            setDrag(current)
+            return
+        }
+        event.preventDefault()
+        val over = container?.let { pointerThumbIndex(it, x, y, current.over) } ?: current.over
+        val prevOver = current.over
+        if (over != prevOver) rects = captureThumbRects(container)
+        current = current.copy(over = over, pointerX = x, pointerY = y)
+        drag = current
+        ghost?.style?.setProperty("left", "${x - current.grabX}px")
+        ghost?.style?.setProperty("top", "${y - current.grabY}px")
+        if (over != prevOver) setDrag(current)
+    }
+
+    private fun finish() {
+        unlisten()
+        val current = drag
+        val didDrag = started
+        started = false
+        drag = null
+        clearThumbMotion(container)
+        setDrag(null)
+        if (!didDrag || current == null) return
+        if (current.from != current.over) onUrls(movedPhotoUrls(urls, current.from, current.over))
+    }
+}
+
+private fun indexForUrl(urls: List<String>, url: String): Int = urls.indexOf(url)
+
+internal fun movedPhotoUrls(urls: List<String>, from: Int, to: Int): List<String> {
+    if (from == to || from !in urls.indices || to !in urls.indices) return urls
+    val next = urls.toMutableList()
+    val item = next.removeAt(from)
+    next.add(to, item)
+    return next
+}
+
+private fun pointerPoint(event: Event): Pair<Double, Double>? {
+    if (event.type.startsWith("touch")) {
+        val touch = event.asDynamic().touches.item(0) ?: event.asDynamic().changedTouches.item(0) ?: return null
+        return (touch.clientX as Double) to (touch.clientY as Double)
+    }
+    val mouse = event as? MouseEvent ?: return null
+    return mouse.clientX.toDouble() to mouse.clientY.toDouble()
+}
+
+internal data class PhotoThumbBox(
+    val left: Double,
+    val top: Double,
+    val width: Double,
+    val height: Double,
+) {
+    val centerX get() = left + width / 2
+    val centerY get() = top + height / 2
+    fun contains(x: Double, y: Double, pad: Double = 0.0): Boolean =
+        x >= left - pad && x <= left + width + pad &&
+            y >= top - pad && y <= top + height + pad
+}
+
+internal fun dropThumbIndex(
+    boxes: List<PhotoThumbBox>,
+    x: Double,
+    y: Double,
+    current: Int,
+    stickPx: Double = 24.0,
+): Int {
+    if (boxes.isEmpty()) return 0
+    if (current in boxes.indices && boxes[current].contains(x, y, stickPx)) return current
+    var best = 0
+    var bestDist = Double.POSITIVE_INFINITY
+    for (i in boxes.indices) {
+        val b = boxes[i]
+        val dx = x - b.centerX
+        val dy = y - b.centerY
+        val dist = dx * dx + dy * dy
+        if (dist < bestDist) {
+            bestDist = dist
+            best = i
+        }
+    }
+    return best
+}
+
+private fun pointerThumbIndex(container: HTMLElement, x: Double, y: Double, current: Int): Int {
+    val nodes = container.querySelectorAll(".photo-thumb")
+    val boxes = ArrayList<PhotoThumbBox>(nodes.length)
+    for (i in 0 until nodes.length) {
+        val el = nodes.item(i) as? HTMLElement ?: continue
+        boxes += layoutBox(el)
+    }
+    return dropThumbIndex(boxes, x, y, current)
+}
+
+private fun captureThumbRects(container: HTMLElement?): Map<String, Pair<Double, Double>> {
+    if (container == null) return emptyMap()
+    val nodes = container.querySelectorAll(".photo-thumb")
+    val next = mutableMapOf<String, Pair<Double, Double>>()
+    for (i in 0 until nodes.length) {
+        val el = nodes.item(i) as? HTMLElement ?: continue
+        val key = el.getAttribute("data-thumb") ?: continue
+        next[key] = layoutPos(el)
+    }
+    return next
+}
+
+private fun animateThumbRects(
+    container: HTMLElement,
+    previous: Map<String, Pair<Double, Double>>,
+): Map<String, Pair<Double, Double>> {
+    val nodes = container.querySelectorAll(".photo-thumb")
+    val next = mutableMapOf<String, Pair<Double, Double>>()
+    for (i in 0 until nodes.length) {
+        val el = nodes.item(i) as? HTMLElement ?: continue
+        val key = el.getAttribute("data-thumb") ?: continue
+        val pos = layoutPos(el)
+        next[key] = pos
+        val last = previous[key] ?: continue
+        val dx = last.first - pos.first
+        val dy = last.second - pos.second
+        if (abs(dx) < 1 && abs(dy) < 1) {
+            el.style.removeProperty("transition")
+            el.style.removeProperty("transform")
+            continue
+        }
+        el.style.setProperty("transition", "none")
+        el.style.setProperty("transform", "translate(${dx}px, ${dy}px)")
+        el.offsetWidth
+        el.style.setProperty("transition", "transform 200ms ease")
+        el.style.setProperty("transform", "translate(0, 0)")
+    }
+    return next
+}
+
+private fun clearThumbMotion(container: HTMLElement?) {
+    if (container == null) return
+    val nodes = container.querySelectorAll(".photo-thumb")
+    for (i in 0 until nodes.length) {
+        val el = nodes.item(i) as? HTMLElement ?: continue
+        el.style.removeProperty("transition")
+        el.style.removeProperty("transform")
+    }
+}
+
+private fun layoutPos(el: HTMLElement): Pair<Double, Double> {
+    val box = layoutBox(el)
+    return box.left to box.top
+}
+
+private fun layoutBox(el: HTMLElement): PhotoThumbBox {
+    val r = el.getBoundingClientRect()
+    val (tx, ty) = computedTranslation(el)
+    return PhotoThumbBox(r.left - tx, r.top - ty, r.width, r.height)
+}
+
+private fun computedTranslation(el: HTMLElement): Pair<Double, Double> {
+    val transform = window.getComputedStyle(el).transform
+    if (transform.isEmpty() || transform == "none") return 0.0 to 0.0
+    return try {
+        val matrix = js("new DOMMatrixReadOnly(transform)")
+        (matrix.m41 as Double) to (matrix.m42 as Double)
+    } catch (_: Throwable) {
+        0.0 to 0.0
+    }
+}
+
+@Composable
 fun Spacer() {
     Div({ classes("spacer") })
 }
 
 var appNotice by mutableStateOf<String?>(null)
-private var draggingPhotoIndex: Int? = null
 
 fun isBenignCancel(message: String?): Boolean {
     val m = message.orEmpty().lowercase()

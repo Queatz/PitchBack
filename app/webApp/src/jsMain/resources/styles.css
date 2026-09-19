@@ -808,6 +808,11 @@ html[data-theme="light"] .chip-topic { background: #efe8ff; color: #5b3bb8; }
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.photo-thumbs.dragging {
+  touch-action: none;
 }
 .photo-thumb {
   position: relative;
@@ -817,11 +822,37 @@ html[data-theme="light"] .chip-topic { background: #efe8ff; color: #5b3bb8; }
   overflow: hidden;
   box-shadow: var(--shadow);
   cursor: grab;
+  touch-action: none;
+}
+.photo-thumb:active {
+  cursor: grabbing;
+}
+.photo-thumb.slot {
+  background: color-mix(in srgb, var(--lime) 10%, transparent);
+  box-shadow: none;
+  outline: 2px dashed color-mix(in srgb, var(--lime) 55%, var(--line));
+  outline-offset: -2px;
+  cursor: grabbing;
+}
+.photo-thumb.slot img,
+.photo-thumb.slot .photo-del {
+  visibility: hidden;
+}
+.photo-thumb.ghost {
+  position: fixed;
+  z-index: 80;
+  pointer-events: none;
+  overflow: hidden;
+  box-shadow: 0 14px 30px rgba(8, 4, 16, 0.35);
+  transform: scale(1.06);
+  opacity: 0.94;
+  cursor: grabbing;
 }
 .photo-thumb img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  pointer-events: none;
 }
 .photo-del {
   position: absolute;
