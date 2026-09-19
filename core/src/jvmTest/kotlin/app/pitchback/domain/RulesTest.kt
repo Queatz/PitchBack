@@ -2,7 +2,12 @@ package app.pitchback.domain
 
 import app.pitchback.api.DayHours
 import app.pitchback.api.OpeningHours
+import app.pitchback.api.WeeklyAvailability
 import app.pitchback.i18n.ApiMessages
+import java.time.DayOfWeek
+import java.time.Instant
+import java.time.OffsetDateTime
+import java.time.ZoneOffset
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -170,5 +175,42 @@ class RulesTest {
         assertEquals("Cần đăng nhập", ApiMessages.t("vi", "AUTH_REQUIRED"))
         assertEquals("That phone is already registered", ApiMessages.t("en", "PHONE_TAKEN"))
         assertEquals("Số điện thoại này đã được đăng ký", ApiMessages.t("vi", "PHONE_TAKEN"))
+    }
+
+    @Test
+    fun availabilityMustHaveAValidTime() {
+        assertEquals("SLOTS_REQUIRED", validateAvailability(WeeklyAvailability()))
+        assertEquals("SLOT_TIME", validateAvailability(WeeklyAvailability(fri = listOf("nope"))))
+        assertNull(validateAvailability(WeeklyAvailability(fri = listOf("18:00"))))
+        val normalized = normalizeAvailability(WeeklyAvailability(fri = listOf("18:00", "18:00", "9:05")))
+        assertEquals(listOf("09:05", "18:00"), normalized.fri)
+    }
+
+    @Test
+    fun nextSlotsSkipPastTimesAndStayWithinUntil() {
+        val now = OffsetDateTime.of(2026, 9, 18, 21, 8, 0, 0, ZoneOffset.ofHours(7))
+            .toInstant().toEpochMilli()
+        val avail = WeeklyAvailability(fri = listOf("18:00", "22:00"), sat = listOf("10:00"))
+        val slots = nextOfferedSlots(avail, now)
+        assertEquals(3, slots.size)
+        assertEquals("22:00", slots[0].time)
+        assertEquals("10:00", slots[1].time)
+        assertEquals("18:00", slots[2].time)
+
+        val first = Instant.ofEpochMilli(slots[0].at).atOffset(ZoneOffset.ofHours(7))
+        assertEquals(DayOfWeek.FRIDAY, first.dayOfWeek)
+        assertEquals(22, first.hour)
+        val second = Instant.ofEpochMilli(slots[1].at).atOffset(ZoneOffset.ofHours(7))
+        assertEquals(DayOfWeek.SATURDAY, second.dayOfWeek)
+        assertEquals(10, second.hour)
+
+        val untilSoon = now + 3 * 60 * 60 * 1000L
+        val limited = nextOfferedSlots(avail, now, availableUntil = untilSoon)
+        assertEquals(1, limited.size)
+        assertEquals("22:00", limited[0].time)
+
+        assertEquals("SLOT_REQUIRED", validateChosenSlot(null, slots))
+        assertEquals("SLOT_INVALID", validateChosenSlot(now + 1, slots))
+        assertNull(validateChosenSlot(slots[0].at, slots))
     }
 }

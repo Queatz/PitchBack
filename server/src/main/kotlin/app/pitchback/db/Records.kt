@@ -5,6 +5,7 @@ import app.pitchback.api.LocationDto
 import app.pitchback.api.LocationSummary
 import app.pitchback.api.OpeningHours
 import app.pitchback.api.PublicUser
+import app.pitchback.api.WeeklyAvailability
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -79,6 +80,7 @@ data class PitchRecord(
     val allowSocialPosting: Boolean = true,
     val status: String,
     val createdAt: Long,
+    val availability: WeeklyAvailability = WeeklyAvailability(),
 )
 
 @Serializable
@@ -91,6 +93,7 @@ data class PitchBackRecord(
     val status: String,
     val createdAt: Long,
     val expiresAt: Long,
+    val slotAt: Long? = null,
 )
 
 @Serializable
@@ -109,6 +112,7 @@ data class MeetRecord(
     val guestFinalMessage: String? = null,
     val dismissedBy: List<String> = emptyList(),
     val createdAt: Long,
+    val slotAt: Long? = null,
 )
 
 @Serializable

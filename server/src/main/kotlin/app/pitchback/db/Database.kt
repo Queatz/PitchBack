@@ -5,12 +5,15 @@ import app.pitchback.api.LocationDto
 import app.pitchback.api.LocationRecDto
 import app.pitchback.api.MeetDto
 import app.pitchback.api.NoShowDto
+import app.pitchback.api.OfferedSlotDto
 import app.pitchback.api.PitchBackDto
 import app.pitchback.api.PitchCardDto
 import app.pitchback.api.TopicDto
 import app.pitchback.api.UserAdminDto
 import app.pitchback.api.VerificationDto
 import app.pitchback.domain.meetEndedBy
+import app.pitchback.domain.nextOfferedSlots
+import app.pitchback.domain.normalizeAvailability
 import app.pitchback.domain.otherFinalMessage
 import app.pitchback.domain.STATUS_APPROVED
 import app.pitchback.domain.STATUS_PENDING
@@ -290,6 +293,7 @@ class Database(val arango: Arango) {
                 return null
             }
         }
+        val availability = normalizeAvailability(pitch.availability)
         return PitchCardDto(
             id = pitch.key,
             text = pitch.text,
@@ -303,6 +307,9 @@ class Database(val arango: Arango) {
             author = author.toPublic(),
             location = locationDto,
             isOwner = viewerId == pitch.authorId,
+            availability = availability,
+            nextSlots = nextOfferedSlots(availability, now, availableUntil = pitch.availableUntil)
+                .map { OfferedSlotDto(it.at, it.time) },
         )
     }
 
@@ -323,6 +330,7 @@ class Database(val arango: Arango) {
             pitchPreview = pitch?.text?.take(120) ?: "",
             locationName = location?.name ?: "",
             outgoing = pb.fromUserId == viewerId,
+            slotAt = pb.slotAt,
         )
     }
 
@@ -354,6 +362,7 @@ class Database(val arango: Arango) {
             endedByMe = viewerId in meetEndedBy(meet.endedUserIds, meet.endedBy),
             myPhotoUrl = me?.photoUrl,
             reportedNoShow = noShowByMeetAndReporter(meet.key, viewerId) != null,
+            slotAt = meet.slotAt,
         )
     }
 

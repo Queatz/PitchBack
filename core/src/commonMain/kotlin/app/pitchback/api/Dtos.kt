@@ -52,6 +52,23 @@ data class OpeningHours(
 )
 
 @Serializable
+data class WeeklyAvailability(
+    val mon: List<String> = emptyList(),
+    val tue: List<String> = emptyList(),
+    val wed: List<String> = emptyList(),
+    val thu: List<String> = emptyList(),
+    val fri: List<String> = emptyList(),
+    val sat: List<String> = emptyList(),
+    val sun: List<String> = emptyList(),
+)
+
+@Serializable
+data class OfferedSlotDto(
+    val at: Long,
+    val time: String = "",
+)
+
+@Serializable
 data class LocationSummary(
     val id: String,
     val name: String,
@@ -86,6 +103,8 @@ data class PitchCardDto(
     val author: PublicUser,
     val location: LocationDto,
     val isOwner: Boolean = false,
+    val availability: WeeklyAvailability = WeeklyAvailability(),
+    val nextSlots: List<OfferedSlotDto> = emptyList(),
 )
 
 @Serializable
@@ -127,13 +146,14 @@ data class CreatePitchRequest(
     val allowSocialPosting: Boolean = true,
     val recommendLocationName: String? = null,
     val recommendLocationNote: String? = null,
+    val availability: WeeklyAvailability = WeeklyAvailability(),
 )
 
 @Serializable
 data class UpdateRemainingRequest(val remainingPitchBacks: Int)
 
 @Serializable
-data class PitchBackRequest(val text: String)
+data class PitchBackRequest(val text: String, val slotAt: Long? = null)
 
 @Serializable
 data class EndMeetRequest(val message: String = "")
@@ -181,6 +201,7 @@ data class PitchBackDto(
     val pitchPreview: String,
     val locationName: String = "",
     val outgoing: Boolean = false,
+    val slotAt: Long? = null,
 )
 
 @Serializable
@@ -199,6 +220,7 @@ data class MeetDto(
     val endedByMe: Boolean = false,
     val myPhotoUrl: String? = null,
     val reportedNoShow: Boolean = false,
+    val slotAt: Long? = null,
 )
 
 @Serializable

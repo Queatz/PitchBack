@@ -116,6 +116,9 @@ object Api {
     suspend fun createPitch(body: CreatePitchRequest): PitchCardDto =
         AppJson.decodeFromString(request("/api/pitches", "POST", AppJson.encodeToString(body)))
 
+    suspend fun updatePitch(id: String, body: CreatePitchRequest): PitchCardDto =
+        AppJson.decodeFromString(request("/api/pitches/$id", "PATCH", AppJson.encodeToString(body)))
+
     suspend fun updateRemaining(id: String, remaining: Int): PitchCardDto =
         AppJson.decodeFromString(
             request("/api/pitches/$id/remaining", "PATCH", AppJson.encodeToString(UpdateRemainingRequest(remaining))),
@@ -125,8 +128,8 @@ object Api {
         request("/api/pitches/$id", "DELETE")
     }
 
-    suspend fun pitchBack(id: String, text: String) {
-        request("/api/pitches/$id/pitch-back", "POST", AppJson.encodeToString(PitchBackRequest(text)))
+    suspend fun pitchBack(id: String, text: String, slotAt: Long) {
+        request("/api/pitches/$id/pitch-back", "POST", AppJson.encodeToString(PitchBackRequest(text, slotAt)))
     }
 
     suspend fun topics(): List<TopicDto> = get("/api/topics")

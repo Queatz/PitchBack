@@ -26,8 +26,12 @@ import app.pitchback.api.TopicDto
 import app.pitchback.api.UpdateProfileRequest
 import app.pitchback.api.UserAdminDto
 import app.pitchback.api.VerificationDto
+import app.pitchback.api.WeeklyAvailability
 import app.pitchback.domain.PITCH_BACK_TEXT_MIN
 import app.pitchback.domain.PITCH_TEXT_MIN
+import app.pitchback.domain.nextOfferedSlots
+import app.pitchback.domain.validateAvailability
+import kotlin.js.Date
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.web.attributes.ButtonType
 import org.jetbrains.compose.web.attributes.InputType
@@ -98,6 +102,7 @@ fun FeedScreen(t: T, user: PublicUser?, remainingSlots: Int, tick: Int) {
 fun PitchScreen(t: T, id: String, user: PublicUser?, lang: AppLang) {
     var card by remember { mutableStateOf<PitchCardDto?>(null) }
     var text by remember { mutableStateOf("") }
+    var selectedAt by remember { mutableStateOf<Long?>(null) }
     var flash by remember { mutableStateOf(false) }
     var profileUser by remember { mutableStateOf<PublicUser?>(null) }
     val scope = rememberCoroutineScope()
@@ -133,11 +138,18 @@ fun PitchScreen(t: T, id: String, user: PublicUser?, lang: AppLang) {
                 } else if (user == null) {
                     GradButton(t.signInToPitch) { go(Screen.Me) }
                 } else {
+                    val slots = nextOfferedSlots(c.availability, Date.now().toLong(), availableUntil = c.availableUntil)
+                    SlotPicker(t, slots, selectedAt) { selectedAt = it }
                     AiField(t, t.pitchBack, text, { text = it }, "pitchBack", t.enterPitch, null, lang, PITCH_BACK_TEXT_MIN)
                     GradButton("${t.pitchBack} ⚡", flash) {
+                        val slot = selectedAt
+                        if (slot == null) {
+                            showNotice(t.pickTimeSlot)
+                            return@GradButton
+                        }
                         scope.launch {
                             try {
-                                Api.pitchBack(id, text)
+                                Api.pitchBack(id, text, slot)
                                 flash = true
                                 showNotice(t.pitchedBackTo(c.author.name))
                                 go(Screen.Inbox)
@@ -189,6 +201,7 @@ fun InboxScreen(t: T, user: PublicUser?, inbox: InboxDto, lang: AppLang, refresh
                     PersonDetails(meet.otherUser) { profileUser = meet.otherUser }
                     P({ classes("preview") }) { Text(meet.pitchPreview) }
                     P({ classes("muted") }) { Text("📍 ${meet.locationName}") }
+                    MeetSlotLine(t, meet.slotAt)
                     Div({ classes("row-btns") }) {
                         GradButton(t.endMeet) { endId = meet.id }
                         GhostButton(t.cancelMeet) { scope.launch { runCatching { Api.cancelMeet(meet.id) }; refresh() } }
@@ -218,6 +231,7 @@ fun InboxScreen(t: T, user: PublicUser?, inbox: InboxDto, lang: AppLang, refresh
                     PersonDetails(pb.fromUser) { profileUser = pb.fromUser }
                     P({ classes("preview") }) { Text("“${pb.pitchPreview}”") }
                     P { Text(pb.text) }
+                    MeetSlotLine(t, pb.slotAt)
                     Div({ classes("row-btns") }) {
                         GradButton(t.acceptPitch) { scope.launch { runCatching { Api.accept(pb.id) }.onFailure { showNotice(it.message) }; refresh() } }
                         GhostButton(t.dismiss) { scope.launch { runCatching { Api.pass(pb.id) }; refresh() } }
@@ -231,6 +245,7 @@ fun InboxScreen(t: T, user: PublicUser?, inbox: InboxDto, lang: AppLang, refresh
                 Div({ classes("inbox-card") }) {
                     PersonDetails(pb.toUser) { profileUser = pb.toUser }
                     P { Text(pb.text) }
+                    MeetSlotLine(t, pb.slotAt)
                     GhostButton(t.cancelPitchBack) { scope.launch { runCatching { Api.cancelPitchBack(pb.id) }; refresh() } }
                 }
             }
@@ -371,6 +386,7 @@ private fun ProfilePanel(
     var myPitches by remember { mutableStateOf(listOf<PitchCardDto>()) }
     var topics by remember { mutableStateOf(listOf<TopicDto>()) }
     var locations by remember { mutableStateOf(listOf<LocationDto>()) }
+    var editing by remember { mutableStateOf<PitchCardDto?>(null) }
     LaunchedEffect(user.id) {
         runCatching { myPitches = Api.myPitches().items }
         runCatching { topics = Api.topics() }
@@ -466,6 +482,8 @@ private fun ProfilePanel(
                         } }) { Text("+ ${p.remainingPitchBacks}") }
                     }
                     Spacer()
+                    GhostButton(t.edit) { editing = p }
+                    Spacer()
                     GhostButton(t.dismiss) {
                         showConfirm(t.dismiss, t.confirmDismissPitch, t.dismiss) {
                             scope.launch {
@@ -484,6 +502,20 @@ private fun ProfilePanel(
         CreatePitchForm(t, lang, topics, locations) {
             scope.launch { runCatching { myPitches = Api.myPitches().items } }
         }
+        editing?.let { pitch ->
+            Div({ classes("modal-back"); onClick { editing = null } }) {
+                Div({
+                    classes("modal", "modal-scroll")
+                    onClick { it.stopPropagation() }
+                }) {
+                    CreatePitchForm(t, lang, topics, locations, existing = pitch) {
+                        editing = null
+                        scope.launch { runCatching { myPitches = Api.myPitches().items } }
+                    }
+                    GhostButton(t.close) { editing = null }
+                }
+            }
+        }
         Spacer()
         GhostButton(t.recs) { go(Screen.Places) }
         Spacer()
@@ -494,18 +526,29 @@ private fun ProfilePanel(
 }
 
 @Composable
-private fun CreatePitchForm(t: T, lang: AppLang, topics: List<TopicDto>, locations: List<LocationDto>, onCreated: () -> Unit) {
+private fun CreatePitchForm(
+    t: T,
+    lang: AppLang,
+    topics: List<TopicDto>,
+    locations: List<LocationDto>,
+    existing: PitchCardDto? = null,
+    onDone: () -> Unit,
+) {
     val scope = rememberCoroutineScope()
-    var text by remember { mutableStateOf("") }
-    var photos by remember { mutableStateOf(listOf<String>()) }
-    var remaining by remember { mutableStateOf(3) }
-    var until by remember { mutableStateOf("") }
-    var topic by remember { mutableStateOf("") }
-    var locationId by remember { mutableStateOf("") }
-    var social by remember { mutableStateOf(true) }
+    val key = existing?.id
+    var text by remember(key) { mutableStateOf(existing?.text.orEmpty()) }
+    var photos by remember(key) { mutableStateOf(existing?.photoUrls.orEmpty()) }
+    var remaining by remember(key) { mutableStateOf(existing?.remainingPitchBacks ?: 3) }
+    var until by remember(key) { mutableStateOf(existing?.availableUntil?.let { epochToDateTimeLocal(it) }.orEmpty()) }
+    var topic by remember(key) { mutableStateOf(existing?.topic.orEmpty()) }
+    var locationId by remember(key) { mutableStateOf(existing?.location?.id.orEmpty()) }
+    var social by remember(key) { mutableStateOf(existing?.allowSocialPosting ?: true) }
+    var availability by remember(key) { mutableStateOf(existing?.availability ?: WeeklyAvailability()) }
     var pickOpen by remember { mutableStateOf(false) }
     val selected = locations.find { it.id == locationId }
-    Div({ classes("section-title") }) { Text(t.createPitch) }
+    val untilMs = until.takeIf { it.isNotBlank() }?.let { Date.parse(it).toLong() }
+    val preview = nextOfferedSlots(availability, Date.now().toLong(), availableUntil = untilMs)
+    Div({ classes("section-title") }) { Text(if (existing == null) t.createPitch else t.edit) }
     AiField(t, t.thePitch, text, { text = it }, "pitch", t.enterPitch, null, lang, PITCH_TEXT_MIN)
     PhotoPicker(t, photos) { photos = it }
     Div({ classes("field") }) {
@@ -532,6 +575,13 @@ private fun CreatePitchForm(t: T, lang: AppLang, topics: List<TopicDto>, locatio
         }) { Text(selected?.name ?: t.pickLocation) }
     }
     ThemeSwitch(t.allowSocial, social) { social = it }
+    AvailabilityEditor(t, availability) { availability = it }
+    if (preview.isNotEmpty()) {
+        Div({ classes("hint") }) { Text(t.nextTimes) }
+        preview.forEach { slot ->
+            P({ classes("slot-preview") }) { Text(formatMeetSlot(t, slot.at)) }
+        }
+    }
     if (pickOpen) {
         LocationPickerDialog(t, locations, onPick = {
             locationId = it.id
@@ -539,34 +589,42 @@ private fun CreatePitchForm(t: T, lang: AppLang, topics: List<TopicDto>, locatio
         }, onClose = { pickOpen = false })
     }
     Spacer()
-    GradButton(t.submitReview) {
+    GradButton(if (existing == null) t.submitReview else t.save) {
         if (locationId.isBlank()) {
             showNotice(t.pickLocation)
             return@GradButton
         }
+        if (validateAvailability(availability) != null) {
+            showNotice(t.pickTimeSlot)
+            return@GradButton
+        }
         scope.launch {
             try {
-                val untilMs = until.takeIf { it.isNotBlank() }?.let { kotlin.js.Date.parse(it).toLong() }
-                Api.createPitch(
-                    CreatePitchRequest(
-                        text = text,
-                        photoUrls = photos,
-                        remainingPitchBacks = remaining,
-                        availableUntil = untilMs,
-                        topic = topic,
-                        locationId = locationId,
-                        allowSocialPosting = social,
-                    ),
+                val body = CreatePitchRequest(
+                    text = text,
+                    photoUrls = photos,
+                    remainingPitchBacks = remaining,
+                    availableUntil = untilMs,
+                    topic = topic,
+                    locationId = locationId,
+                    allowSocialPosting = social,
+                    availability = availability,
                 )
-                text = ""
-                photos = emptyList()
-                remaining = 3
-                until = ""
-                topic = ""
-                locationId = ""
-                social = true
-                onCreated()
-                showNotice(t.pitchSubmitted)
+                if (existing != null) {
+                    Api.updatePitch(existing.id, body)
+                } else {
+                    Api.createPitch(body)
+                    text = ""
+                    photos = emptyList()
+                    remaining = 3
+                    until = ""
+                    topic = ""
+                    locationId = ""
+                    social = true
+                    availability = WeeklyAvailability()
+                    showNotice(t.pitchSubmitted)
+                }
+                onDone()
             } catch (e: Throwable) {
                 showNotice(e.message)
             }

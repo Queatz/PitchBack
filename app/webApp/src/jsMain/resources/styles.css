@@ -314,7 +314,7 @@ img { max-width: 100%; display: block; }
 .chip-green { background: rgba(124, 255, 107, 0.16); color: var(--green); }
 .chip-topic { background: #3a2a6a; color: #d7c8ff; }
 html[data-theme="light"] .chip-topic { background: #efe8ff; color: #5b3bb8; }
-.verified { color: var(--green); }
+.verified { color: var(--green); font-size: 18px; }
 
 .field { position: relative; margin: 10px 0; }
 .field label { display: flex; font-size: 0.82rem; color: var(--muted); margin-bottom: 6px; font-weight: 600; }
@@ -596,6 +596,109 @@ html[data-theme="light"] .chip-topic { background: #efe8ff; color: #5b3bb8; }
 .muted { color: var(--muted); }
 .back-row { display: flex; align-items: center; gap: 8px; }
 .error { color: var(--danger); font-size: 0.86rem; }
+.day-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.day-toggle {
+  border: 1px solid var(--line);
+  background: var(--card-2);
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-weight: 700;
+  width: auto;
+}
+.day-toggle.on {
+  background: var(--lime);
+  color: var(--lime-text);
+  border-color: var(--lime);
+}
+.avail-day {
+  background: var(--card-2);
+  border-radius: 16px;
+  padding: 10px 12px;
+  margin: 8px 0 0;
+}
+.avail-day-name {
+  font-weight: 800;
+  font-size: 0.86rem;
+  margin-bottom: 8px;
+}
+.time-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.time-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--chip);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-weight: 700;
+  font-size: 0.86rem;
+}
+.time-chip button {
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.85rem;
+  padding: 0;
+}
+.time-add {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+}
+.time-add input {
+  flex: 1;
+  background: var(--card);
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-radius: 14px;
+  padding: 10px 12px;
+  outline: none;
+}
+.time-add button {
+  width: auto;
+  border: 0;
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-weight: 800;
+  background: var(--lime);
+  color: var(--lime-text);
+}
+.slot-grid {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0 14px;
+}
+.slot-option {
+  border: 1px solid var(--line);
+  background: var(--card-2);
+  color: var(--text);
+  border-radius: 16px;
+  padding: 12px 14px;
+  font-weight: 700;
+  text-align: left;
+  width: 100%;
+}
+.slot-option.on {
+  border-color: var(--lime);
+  background: color-mix(in srgb, var(--lime) 16%, var(--card-2));
+}
+.slot-preview {
+  color: var(--muted);
+  font-size: 0.82rem;
+  margin: 4px 0;
+}
 
 @media (min-width: 900px) {
   .app-shell { grid-template-columns: 240px 1fr; }

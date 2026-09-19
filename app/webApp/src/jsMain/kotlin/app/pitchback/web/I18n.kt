@@ -142,6 +142,19 @@ class T(val lang: AppLang) {
     val fri get() = s("Fri", "T6")
     val sat get() = s("Sat", "T7")
     val sun get() = s("Sun", "CN")
+    val meetTimes get() = s("When can you meet?", "Bạn rảnh lúc nào?")
+    val meetTimesHint get() = s("Tap the days, then add the times you can meet.", "Chọn ngày, rồi thêm giờ bạn rảnh.")
+    val addTime get() = s("Add a time", "Thêm giờ")
+    val pickTimeSlot get() = s("Pick a time to meet", "Chọn giờ gặp mặt")
+    val nextTimes get() = s("Next times", "Giờ gần nhất")
+    val meetAt get() = s("Meet at", "Gặp lúc")
+    val noTimes get() = s("No upcoming times on this pitch", "Lời ngỏ này chưa có giờ trống")
+    val months: List<String>
+        get() = if (lang == AppLang.VI) {
+            listOf("thg 1", "thg 2", "thg 3", "thg 4", "thg 5", "thg 6", "thg 7", "thg 8", "thg 9", "thg 10", "thg 11", "thg 12")
+        } else {
+            listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+        }
 
     fun pendingTasks(count: Int): String = when {
         lang == AppLang.VI -> if (count == 1) "1 việc đang chờ" else "$count việc đang chờ"

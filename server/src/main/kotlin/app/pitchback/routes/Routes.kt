@@ -21,6 +21,7 @@ import app.pitchback.api.UpdateProfileRequest
 import app.pitchback.api.UpdateRemainingRequest
 import app.pitchback.api.UploadResponse
 import app.pitchback.api.VerificationRequestBody
+import app.pitchback.api.WeeklyAvailability
 import app.pitchback.auth.UserSession
 import app.pitchback.currentUser
 import app.pitchback.db.LocationRecRecord
@@ -59,6 +60,10 @@ import app.pitchback.domain.remainingAfterAccept
 import app.pitchback.domain.validateHighlights
 import app.pitchback.domain.validateName
 import app.pitchback.domain.validatePassword
+import app.pitchback.domain.nextOfferedSlots
+import app.pitchback.domain.normalizeAvailability
+import app.pitchback.domain.validateAvailability
+import app.pitchback.domain.validateChosenSlot
 import app.pitchback.domain.validatePhotos
 import app.pitchback.domain.validatePitchBackText
 import app.pitchback.domain.validatePitchText
@@ -92,6 +97,7 @@ import io.ktor.sse.ServerSentEvent
 import io.ktor.utils.io.readRemaining
 import kotlinx.coroutines.delay
 import kotlinx.io.readByteArray
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
@@ -320,6 +326,8 @@ fun Route.api(app: AppContext) {
         validateRemainingOnCreate(body.remainingPitchBacks)?.let {
             throw ApiException.bad(it, it)
         }
+        validateAvailability(body.availability)?.let { throw ApiException.bad(it, it) }
+        val availability = normalizeAvailability(body.availability)
         db.locationById(body.locationId) ?: throw ApiException.bad("LOCATION", "LOCATION_REQUIRED")
         val now = app.now()
         val pitch = db.insertPitch(
@@ -335,6 +343,7 @@ fun Route.api(app: AppContext) {
                 allowSocialPosting = body.allowSocialPosting,
                 status = STATUS_PENDING,
                 createdAt = now,
+                availability = availability,
             ),
         )
         val recName = body.recommendLocationName?.trim().orEmpty()
@@ -365,6 +374,38 @@ fun Route.api(app: AppContext) {
         call.respond(db.toCard(updated, user.key, app.now())!!)
     }
 
+    patch("/api/pitches/{id}") {
+        val user = call.requireUser(app)
+        val pitch = db.pitchById(call.parameters["id"].orEmpty()) ?: throw ApiException.notFound("PITCH_NOT_FOUND")
+        if (pitch.authorId != user.key) throw ApiException.forbidden()
+        val body = call.receive<CreatePitchRequest>()
+        validatePitchText(body.text)?.let { throw ApiException.bad(it, it) }
+        validatePhotos(body.photoUrls)?.let { throw ApiException.bad(it, it) }
+        if (body.remainingPitchBacks < 0 || body.remainingPitchBacks > 99) {
+            throw ApiException.bad("REMAINING", "REMAINING_RANGE")
+        }
+        validateAvailability(body.availability)?.let { throw ApiException.bad(it, it) }
+        val availability = normalizeAvailability(body.availability)
+        db.locationById(body.locationId) ?: throw ApiException.bad("LOCATION", "LOCATION_REQUIRED")
+        val updated = db.updatePitch(
+            pitch.key,
+            patchOf {
+                put("text", body.text.trim())
+                putJsonArray("photoUrls") { body.photoUrls.forEach { add(it) } }
+                put("remainingPitchBacks", body.remainingPitchBacks)
+                if (body.availableUntil == null) put("availableUntil", JsonNull)
+                else put("availableUntil", body.availableUntil)
+                put("topic", body.topic.trim())
+                put("locationId", body.locationId)
+                put("allowSocialPosting", body.allowSocialPosting)
+                put("availability", AppJson.encodeToJsonElement(WeeklyAvailability.serializer(), availability))
+            },
+        )
+        app.hub.send(user.key, "me")
+        app.hub.send(user.key, "feed")
+        call.respond(db.toCard(updated, user.key, app.now())!!)
+    }
+
     delete("/api/pitches/{id}") {
         val user = call.requireUser(app)
         val pitch = db.pitchById(call.parameters["id"].orEmpty()) ?: throw ApiException.notFound("PITCH_NOT_FOUND")
@@ -390,6 +431,8 @@ fun Route.api(app: AppContext) {
         validatePitchBackText(body.text)?.let {
             throw ApiException.bad(it, it)
         }
+        val offered = nextOfferedSlots(pitch.availability, now, availableUntil = pitch.availableUntil)
+        validateChosenSlot(body.slotAt, offered)?.let { throw ApiException.bad(it, it) }
         if (db.existingPendingPitchBack(pitch.key, user.key) != null) {
             throw ApiException.conflict("EXISTS", "PITCH_BACK_EXISTS")
         }
@@ -404,6 +447,7 @@ fun Route.api(app: AppContext) {
                 status = STATUS_PENDING,
                 createdAt = created,
                 expiresAt = pitchBackExpiresAt(created),
+                slotAt = body.slotAt,
             ),
         )
         app.hub.send(pitch.authorId, "inbox")
@@ -436,6 +480,7 @@ fun Route.api(app: AppContext) {
                 guestId = pb.fromUserId,
                 status = STATUS_ACTIVE,
                 createdAt = now,
+                slotAt = pb.slotAt,
             ),
         )
         app.hub.sendMany(listOf(pb.fromUserId, pb.toUserId), "inbox")

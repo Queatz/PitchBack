@@ -12,10 +12,16 @@ import app.pitchback.api.LocationDto
 import app.pitchback.api.OpeningHours
 import app.pitchback.api.PitchCardDto
 import app.pitchback.api.PublicUser
+import app.pitchback.api.WeeklyAvailability
+import app.pitchback.domain.DEFAULT_MEET_TIME
+import app.pitchback.domain.OfferedSlot
 import app.pitchback.domain.OpenStatus
+import app.pitchback.domain.availabilityFromMonFirst
 import app.pitchback.domain.condensedHours
 import app.pitchback.domain.formatMinutes
+import app.pitchback.domain.monFirstDays
 import app.pitchback.domain.openStatus
+import app.pitchback.domain.parseMinutes
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.max
@@ -508,16 +514,17 @@ fun LocationBlock(t: T, loc: LocationDto, header: String? = null, selectLabel: S
         PhotoScroller(loc.photoUrls)
         Div({ classes("card-body") }) {
             H3 { Text(loc.name) }
+            HoursList(t, loc.openingHours)
             if (loc.description.isNotBlank()) P { Text(loc.description) }
             if (loc.address.isNotBlank()) P({ classes("muted") }) { Text("📍 ${loc.address}") }
             loc.highlights.filter { it.isNotBlank() }.forEachIndexed { i, h ->
                 P({ classes("highlight", "c${i % 3}") }) { Text("✦ $h") }
             }
-            HoursList(t, loc.openingHours)
             val mapUrl = loc.directionsUrl.ifBlank {
                 val q = loc.address.ifBlank { loc.name }
                 "https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}"
             }
+            Spacer()
             if (mapUrl.isNotBlank()) GhostButton(t.viewOnMap) { window.open(mapUrl, "_blank") }
             if (onSelect != null && selectLabel != null) {
                 Spacer()
@@ -630,6 +637,122 @@ private fun hoursNowLine(t: T, status: OpenStatus, today: Int, jsDays: List<Stri
 }
 
 fun encodeURIComponent(value: String): String = js("encodeURIComponent")(value) as String
+
+fun formatMeetSlot(t: T, at: Long): String {
+    val d = Date(at.toDouble())
+    val days = listOf(t.sun, t.mon, t.tue, t.wed, t.thu, t.fri, t.sat)
+    val month = t.months.getOrElse(d.getMonth()) { "" }
+    val hh = d.getHours().toString().padStart(2, '0')
+    val mm = d.getMinutes().toString().padStart(2, '0')
+    return "${days[d.getDay()]} ${d.getDate()} $month · $hh:$mm"
+}
+
+fun epochToDateTimeLocal(ms: Long): String {
+    val d = Date(ms.toDouble())
+    fun p(n: Int) = n.toString().padStart(2, '0')
+    return "${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}"
+}
+
+@Composable
+fun AvailabilityEditor(
+    t: T,
+    value: WeeklyAvailability,
+    onValue: (WeeklyAvailability) -> Unit,
+) {
+    val days = value.monFirstDays()
+    val labels = listOf(t.mon, t.tue, t.wed, t.thu, t.fri, t.sat, t.sun)
+    var drafts by remember { mutableStateOf(List(7) { "" }) }
+    fun setDay(index: Int, times: List<String>) {
+        val next = days.toMutableList()
+        next[index] = times
+        onValue(availabilityFromMonFirst(next))
+    }
+    Div({ classes("field") }) {
+        Label { Text(t.meetTimes) }
+        Div({ classes("day-toggles") }) {
+            labels.forEachIndexed { i, label ->
+                val on = days[i].isNotEmpty()
+                Button({
+                    classes("day-toggle")
+                    if (on) classes("on")
+                    type(ButtonType.Button)
+                    onClick {
+                        setDay(i, if (on) emptyList() else listOf(DEFAULT_MEET_TIME))
+                    }
+                }) { Text(label) }
+            }
+        }
+        days.forEachIndexed { i, times ->
+            if (times.isEmpty()) return@forEachIndexed
+            Div({ classes("avail-day") }) {
+                Div({ classes("avail-day-name") }) { Text(labels[i]) }
+                Div({ classes("time-chips") }) {
+                    times.forEach { time ->
+                        Span({ classes("time-chip") }) {
+                            Text(time)
+                            Button({
+                                type(ButtonType.Button)
+                                onClick { setDay(i, times.filter { it != time }) }
+                            }) { Text("✕") }
+                        }
+                    }
+                }
+                Div({ classes("time-add") }) {
+                    Input(InputType.Time) {
+                        value(drafts[i])
+                        onInput { ev ->
+                            val next = drafts.toMutableList()
+                            next[i] = ev.value
+                            drafts = next
+                        }
+                    }
+                    Button({
+                        type(ButtonType.Button)
+                        onClick {
+                            val mins = parseMinutes(drafts[i]) ?: return@onClick
+                            val label = formatMinutes(mins)
+                            if (label !in times) setDay(i, (times + label).distinct().sorted())
+                            val next = drafts.toMutableList()
+                            next[i] = ""
+                            drafts = next
+                        }
+                    }) { Text(t.addTime) }
+                }
+            }
+        }
+        Div({ classes("hint") }) { Text(t.meetTimesHint) }
+    }
+}
+
+@Composable
+fun SlotPicker(
+    t: T,
+    slots: List<OfferedSlot>,
+    selectedAt: Long?,
+    onSelect: (Long) -> Unit,
+) {
+    Div({ classes("quote-label") }) { Text(t.nextTimes) }
+    if (slots.isEmpty()) {
+        P({ classes("muted") }) { Text(t.noTimes) }
+        return
+    }
+    Div({ classes("slot-grid") }) {
+        slots.forEach { slot ->
+            Button({
+                classes("slot-option")
+                if (selectedAt == slot.at) classes("on")
+                type(ButtonType.Button)
+                onClick { onSelect(slot.at) }
+            }) { Text(formatMeetSlot(t, slot.at)) }
+        }
+    }
+}
+
+@Composable
+fun MeetSlotLine(t: T, slotAt: Long?) {
+    if (slotAt == null) return
+    P({ classes("muted") }) { Text("🕒 ${t.meetAt} ${formatMeetSlot(t, slotAt)}") }
+}
 
 @Composable
 fun LocationPickerDialog(
