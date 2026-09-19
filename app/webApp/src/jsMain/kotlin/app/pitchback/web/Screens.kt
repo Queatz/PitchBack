@@ -201,7 +201,7 @@ fun InboxScreen(t: T, user: PublicUser?, inbox: InboxDto, lang: AppLang, refresh
                 Div({ classes("inbox-card") }) {
                     PersonDetails(meet.otherUser) { profileUser = meet.otherUser }
                     P({ classes("preview") }) { Text(meet.pitchPreview) }
-                    P({ classes("muted") }) { Text("📍 ${meet.locationName}") }
+                    P({ classes("muted") }) { Text("📍 ${t.meetAt} ${meet.locationName}") }
                     MeetSlotLine(t, meet.slotAt)
                     Div({ classes("row-btns") }) {
                         GradButton(t.endMeet) { endId = meet.id }
@@ -232,6 +232,7 @@ fun InboxScreen(t: T, user: PublicUser?, inbox: InboxDto, lang: AppLang, refresh
                     PersonDetails(pb.fromUser) { profileUser = pb.fromUser }
                     P({ classes("preview") }) { Text("“${pb.pitchPreview}”") }
                     P { Text(pb.text) }
+                    P({ classes("muted") }) { Text("📍 ${t.meetAt} ${pb.locationName}") }
                     MeetSlotLine(t, pb.slotAt)
                     Div({ classes("row-btns") }) {
                         GradButton(t.acceptPitch) { scope.launch { runCatching { Api.accept(pb.id) }.onFailure { showNotice(it.message) }; refresh() } }

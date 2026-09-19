@@ -751,7 +751,7 @@ fun SlotPicker(
 @Composable
 fun MeetSlotLine(t: T, slotAt: Long?) {
     if (slotAt == null) return
-    P({ classes("muted") }) { Text("🕒 ${t.meetAt} ${formatMeetSlot(t, slotAt)}") }
+    P({ classes("muted") }) { Text("🕒 ${t.meetOn} ${formatMeetSlot(t, slotAt)}") }
 }
 
 @Composable
