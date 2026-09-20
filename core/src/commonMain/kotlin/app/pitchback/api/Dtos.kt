@@ -34,6 +34,35 @@ data class AdminPendingDto(
 )
 
 @Serializable
+data class AdminStatsDto(
+    val activeUsersToday: Int = 0,
+    val activeUsersWeek: Int = 0,
+    val activeUsersMonth: Int = 0,
+    val users: Int = 0,
+    val pitches: Int = 0,
+    val locations: Int = 0,
+    val activeMeets: Int = 0,
+)
+
+@Serializable
+data class AdminEventDto(
+    val id: String,
+    val type: String,
+    val createdAt: Long,
+    val actor: PublicUser? = null,
+    val target: PublicUser? = null,
+    val entityId: String? = null,
+    val entityType: String? = null,
+    val summary: String = "",
+)
+
+@Serializable
+data class AdminEventsResponse(
+    val items: List<AdminEventDto>,
+    val nextBefore: Long? = null,
+)
+
+@Serializable
 data class DayHours(
     val closed: Boolean = false,
     val open: String? = "09:00",

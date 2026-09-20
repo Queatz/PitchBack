@@ -33,6 +33,8 @@ import app.pitchback.db.PitchRecord
 import app.pitchback.db.UserRecord
 import app.pitchback.db.VerificationRecord
 import app.pitchback.db.patchOf
+import app.pitchback.domain.ActivityEntity
+import app.pitchback.domain.ActivityType
 import app.pitchback.domain.STATUS_ACCEPTED
 import app.pitchback.domain.STATUS_ACTIVE
 import app.pitchback.domain.STATUS_APPROVED
@@ -141,8 +143,10 @@ fun Route.api(app: AppContext) {
                 passwordHash = BCrypt.hashpw(body.password, BCrypt.gensalt()),
                 isAdmin = isAdminOnCreate(db.userCount()),
                 createdAt = now,
+                lastActiveAt = now,
             ),
         )
+        app.track(ActivityType.USER_CREATED, user.key, at = now)
         call.sessions.set(UserSession(user.key))
         call.respond(HttpStatusCode.Created, meDto(app, user))
     }
@@ -156,6 +160,7 @@ fun Route.api(app: AppContext) {
             throw ApiException.unauthorized("AUTH_BAD")
         }
         call.sessions.set(UserSession(user.key))
+        app.touchActive(user.key)
         call.respond(meDto(app, user))
     }
 
@@ -207,7 +212,7 @@ fun Route.api(app: AppContext) {
         if (db.pendingVerification(user.key) != null) {
             throw ApiException.conflict("PENDING", "VERIFY_PENDING")
         }
-        db.insertVerification(
+        val doc = db.insertVerification(
             VerificationRecord(
                 key = UUID.randomUUID().toString(),
                 userId = user.key,
@@ -215,6 +220,13 @@ fun Route.api(app: AppContext) {
                 status = STATUS_PENDING,
                 createdAt = app.now(),
             ),
+        )
+        app.track(
+            ActivityType.USER_VERIFICATION_REQUESTED,
+            user.key,
+            entityId = doc.key,
+            entityType = ActivityEntity.VERIFICATION,
+            summary = phone,
         )
         call.respond(OkDto())
     }
@@ -269,7 +281,7 @@ fun Route.api(app: AppContext) {
         val user = call.requireUser(app)
         val body = call.receive<RecommendLocationRequest>()
         if (body.name.trim().length < 2) throw ApiException.bad("NAME", "PLACE_NAME")
-        db.insertLocationRec(
+        val rec = db.insertLocationRec(
             LocationRecRecord(
                 key = UUID.randomUUID().toString(),
                 userId = user.key,
@@ -279,6 +291,13 @@ fun Route.api(app: AppContext) {
                 status = STATUS_PENDING,
                 createdAt = app.now(),
             ),
+        )
+        app.track(
+            ActivityType.PLACE_IDEA_SUBMITTED,
+            user.key,
+            entityId = rec.key,
+            entityType = ActivityEntity.LOCATION_REC,
+            summary = rec.name,
         )
         call.respond(HttpStatusCode.Created, OkDto())
     }
@@ -349,7 +368,7 @@ fun Route.api(app: AppContext) {
         )
         val recName = body.recommendLocationName?.trim().orEmpty()
         if (recName.length >= 2) {
-            db.insertLocationRec(
+            val rec = db.insertLocationRec(
                 LocationRecRecord(
                     key = UUID.randomUUID().toString(),
                     userId = user.key,
@@ -359,7 +378,23 @@ fun Route.api(app: AppContext) {
                     createdAt = now,
                 ),
             )
+            app.track(
+                ActivityType.PLACE_IDEA_SUBMITTED,
+                user.key,
+                entityId = rec.key,
+                entityType = ActivityEntity.LOCATION_REC,
+                summary = rec.name,
+                at = now,
+            )
         }
+        app.track(
+            ActivityType.PITCH_CREATED,
+            user.key,
+            entityId = pitch.key,
+            entityType = ActivityEntity.PITCH,
+            summary = pitch.text,
+            at = now,
+        )
         val card = db.toCard(pitch, user.key, now) ?: throw ApiException.notFound()
         call.respond(HttpStatusCode.Created, card)
     }
@@ -404,6 +439,13 @@ fun Route.api(app: AppContext) {
         )
         app.hub.send(user.key, "me")
         app.hub.send(user.key, "feed")
+        app.track(
+            ActivityType.PITCH_EDITED,
+            user.key,
+            entityId = pitch.key,
+            entityType = ActivityEntity.PITCH,
+            summary = updated.text,
+        )
         call.respond(db.toCard(updated, user.key, app.now())!!)
     }
 
@@ -414,6 +456,13 @@ fun Route.api(app: AppContext) {
         db.deletePitch(pitch.key)
         app.hub.send(user.key, "me")
         app.hub.send(user.key, "feed")
+        app.track(
+            ActivityType.PITCH_DELETED,
+            user.key,
+            entityId = pitch.key,
+            entityType = ActivityEntity.PITCH,
+            summary = pitch.text,
+        )
         call.respond(OkDto())
     }
 
@@ -458,6 +507,15 @@ fun Route.api(app: AppContext) {
             ),
         )
         app.hub.send(pitch.authorId, "inbox")
+        app.track(
+            ActivityType.PITCH_BACK_SENT,
+            user.key,
+            targetUserId = pitch.authorId,
+            entityId = pb.key,
+            entityType = ActivityEntity.PITCH_BACK,
+            summary = pb.text,
+            at = created,
+        )
         call.respond(HttpStatusCode.Created, db.toPitchBackDto(pb, user.key)!!)
     }
 
@@ -492,6 +550,15 @@ fun Route.api(app: AppContext) {
         )
         app.hub.sendMany(listOf(pb.fromUserId, pb.toUserId), "inbox")
         app.hub.sendMany(listOf(pb.fromUserId, pb.toUserId), "feed")
+        app.track(
+            ActivityType.PITCH_BACK_ACCEPTED,
+            user.key,
+            targetUserId = pb.fromUserId,
+            entityId = pb.key,
+            entityType = ActivityEntity.PITCH_BACK,
+            summary = pitch.text,
+            at = now,
+        )
         call.respond(OkDto())
     }
 
@@ -502,6 +569,14 @@ fun Route.api(app: AppContext) {
         if (pb.status != STATUS_PENDING) throw ApiException.bad("STATUS", "ALREADY_HANDLED")
         db.updatePitchBack(pb.key, patchOf { put("status", STATUS_PASSED) })
         app.hub.sendMany(listOf(pb.fromUserId, pb.toUserId), "inbox")
+        app.track(
+            ActivityType.PITCH_BACK_DISMISSED,
+            user.key,
+            targetUserId = pb.fromUserId,
+            entityId = pb.key,
+            entityType = ActivityEntity.PITCH_BACK,
+            summary = pb.text,
+        )
         call.respond(OkDto())
     }
 
@@ -512,6 +587,14 @@ fun Route.api(app: AppContext) {
         if (pb.status != STATUS_PENDING) throw ApiException.bad("STATUS", "ALREADY_HANDLED")
         db.updatePitchBack(pb.key, patchOf { put("status", STATUS_CANCELLED) })
         app.hub.sendMany(listOf(pb.fromUserId, pb.toUserId), "inbox")
+        app.track(
+            ActivityType.PITCH_BACK_CANCELLED,
+            user.key,
+            targetUserId = pb.toUserId,
+            entityId = pb.key,
+            entityType = ActivityEntity.PITCH_BACK,
+            summary = pb.text,
+        )
         call.respond(OkDto())
     }
 
@@ -528,6 +611,13 @@ fun Route.api(app: AppContext) {
             },
         )
         app.hub.sendMany(listOf(meet.ownerId, meet.guestId), "inbox")
+        app.track(
+            ActivityType.MEET_CANCELED,
+            user.key,
+            targetUserId = otherMeetUser(meet, user.key),
+            entityId = meet.key,
+            entityType = ActivityEntity.MEET,
+        )
         call.respond(OkDto())
     }
 
@@ -551,6 +641,14 @@ fun Route.api(app: AppContext) {
             },
         )
         app.hub.sendMany(listOf(meet.ownerId, meet.guestId), "inbox")
+        app.track(
+            if (message.isNotEmpty()) ActivityType.FINAL_MESSAGE_SENT else ActivityType.MEET_ENDED,
+            user.key,
+            targetUserId = otherMeetUser(meet, user.key),
+            entityId = meet.key,
+            entityType = ActivityEntity.MEET,
+            summary = message,
+        )
         val dto = db.toMeetDto(db.meetById(meet.key)!!, user.key)!!
         call.respond(dto)
     }
@@ -563,7 +661,10 @@ fun Route.api(app: AppContext) {
         db.updateMeet(
             meet.key,
             patchOf {
-                put("dismissedBy", kotlinx.serialization.json.JsonArray(dismissed.map { kotlinx.serialization.json.JsonPrimitive(it) }))
+                put(
+                    "dismissedBy",
+                    kotlinx.serialization.json.JsonArray(dismissed.map { kotlinx.serialization.json.JsonPrimitive(it) })
+                )
             },
         )
         call.respond(OkDto())
@@ -582,7 +683,7 @@ fun Route.api(app: AppContext) {
         }
         val message = runCatching { call.receive<NoShowRequest>().message }.getOrDefault("").trim()
         val accused = if (meet.ownerId == user.key) meet.guestId else meet.ownerId
-        db.insertNoShow(
+        val noShow = db.insertNoShow(
             NoShowRecord(
                 key = UUID.randomUUID().toString(),
                 meetId = meet.key,
@@ -592,6 +693,14 @@ fun Route.api(app: AppContext) {
                 createdAt = app.now(),
                 message = message,
             ),
+        )
+        app.track(
+            ActivityType.NO_SHOW_REPORTED,
+            user.key,
+            targetUserId = accused,
+            entityId = noShow.key,
+            entityType = ActivityEntity.MEET,
+            summary = message,
         )
         call.respond(OkDto())
     }
@@ -628,6 +737,16 @@ fun Route.api(app: AppContext) {
             call.requireAdmin(app)
             call.respond(db.adminPending())
         }
+        get("/stats") {
+            call.requireAdmin(app)
+            call.respond(db.adminStats(app.now()))
+        }
+        get("/activity") {
+            call.requireAdmin(app)
+            val before = call.request.queryParameters["before"]?.toLongOrNull() ?: Long.MAX_VALUE
+            val limit = (call.request.queryParameters["limit"]?.toIntOrNull() ?: 30).coerceIn(1, 50)
+            call.respond(db.activityFeed(before, limit))
+        }
         get("/pitches") {
             val admin = call.requireAdmin(app)
             val now = app.now()
@@ -635,18 +754,34 @@ fun Route.api(app: AppContext) {
             call.respond(FeedResponse(items))
         }
         post("/pitches/{id}/approve") {
-            call.requireAdmin(app)
+            val admin = call.requireAdmin(app)
             val pitch = db.pitchById(call.parameters["id"].orEmpty()) ?: throw ApiException.notFound()
             db.updatePitch(pitch.key, patchOf { put("status", STATUS_APPROVED) })
             app.hub.send(pitch.authorId, "me")
             app.hub.send(pitch.authorId, "feed")
+            app.track(
+                ActivityType.PITCH_APPROVED,
+                admin.key,
+                targetUserId = pitch.authorId,
+                entityId = pitch.key,
+                entityType = ActivityEntity.PITCH,
+                summary = pitch.text,
+            )
             call.respond(OkDto())
         }
         post("/pitches/{id}/dismiss") {
-            call.requireAdmin(app)
+            val admin = call.requireAdmin(app)
             val pitch = db.pitchById(call.parameters["id"].orEmpty()) ?: throw ApiException.notFound()
             db.updatePitch(pitch.key, patchOf { put("status", STATUS_DISMISSED) })
             app.hub.send(pitch.authorId, "me")
+            app.track(
+                ActivityType.PITCH_DISMISSED,
+                admin.key,
+                targetUserId = pitch.authorId,
+                entityId = pitch.key,
+                entityType = ActivityEntity.PITCH,
+                summary = pitch.text,
+            )
             call.respond(OkDto())
         }
         get("/verifications") {
@@ -654,18 +789,32 @@ fun Route.api(app: AppContext) {
             call.respond(db.pendingVerifications().mapNotNull { db.toVerificationDto(it) })
         }
         post("/verifications/{id}/approve") {
-            call.requireAdmin(app)
+            val admin = call.requireAdmin(app)
             val doc = db.verificationById(call.parameters["id"].orEmpty()) ?: throw ApiException.notFound()
             db.updateVerification(doc.key, patchOf { put("status", STATUS_APPROVED) })
             db.updateUser(doc.userId, patchOf { put("verified", true) })
             app.hub.send(doc.userId, "me")
+            app.track(
+                ActivityType.USER_VERIFIED,
+                admin.key,
+                targetUserId = doc.userId,
+                entityId = doc.key,
+                entityType = ActivityEntity.VERIFICATION,
+            )
             call.respond(OkDto())
         }
         post("/verifications/{id}/dismiss") {
-            call.requireAdmin(app)
+            val admin = call.requireAdmin(app)
             val doc = db.verificationById(call.parameters["id"].orEmpty()) ?: throw ApiException.notFound()
             db.updateVerification(doc.key, patchOf { put("status", STATUS_DISMISSED) })
             app.hub.send(doc.userId, "me")
+            app.track(
+                ActivityType.USER_VERIFICATION_DISMISSED,
+                admin.key,
+                targetUserId = doc.userId,
+                entityId = doc.key,
+                entityType = ActivityEntity.VERIFICATION,
+            )
             call.respond(OkDto())
         }
         get("/users") {
@@ -673,17 +822,34 @@ fun Route.api(app: AppContext) {
             call.respond(db.allUsers().map { db.toAdminUser(it) })
         }
         post("/users/{id}/promote") {
-            call.requireAdmin(app)
+            val admin = call.requireAdmin(app)
             val target = db.userById(call.parameters["id"].orEmpty()) ?: throw ApiException.notFound()
             db.updateUser(target.key, patchOf { put("isAdmin", true) })
             app.hub.send(target.key, "me")
+            app.track(
+                ActivityType.USER_PROMOTED,
+                admin.key,
+                targetUserId = target.key,
+                entityId = target.key,
+                entityType = ActivityEntity.USER,
+                summary = target.name,
+            )
             call.respond(OkDto())
         }
         post("/users/{id}/disable") {
             val admin = call.requireAdmin(app)
             val target = db.userById(call.parameters["id"].orEmpty()) ?: throw ApiException.notFound()
             if (!canDisableAccount(admin.key, target.key)) throw ApiException.bad("SELF", "DISABLE_SELF")
-            db.updateUser(target.key, patchOf { put("disabled", !target.disabled) })
+            val disabled = !target.disabled
+            db.updateUser(target.key, patchOf { put("disabled", disabled) })
+            app.track(
+                if (disabled) ActivityType.USER_DISABLED else ActivityType.USER_ENABLED,
+                admin.key,
+                targetUserId = target.key,
+                entityId = target.key,
+                entityType = ActivityEntity.USER,
+                summary = target.name,
+            )
             call.respond(OkDto())
         }
         get("/locations") {
@@ -691,7 +857,7 @@ fun Route.api(app: AppContext) {
             call.respond(db.locationsNewest().map { it.toDto() })
         }
         post("/locations") {
-            call.requireAdmin(app)
+            val admin = call.requireAdmin(app)
             val body = call.receive<LocationWriteRequest>()
             validateLocation(body)
             val loc = db.insertLocation(
@@ -707,10 +873,17 @@ fun Route.api(app: AppContext) {
                     createdAt = app.now(),
                 ),
             )
+            app.track(
+                ActivityType.LOCATION_CREATED,
+                admin.key,
+                entityId = loc.key,
+                entityType = ActivityEntity.LOCATION,
+                summary = loc.name,
+            )
             call.respond(HttpStatusCode.Created, loc.toDto())
         }
         put("/locations/{id}") {
-            call.requireAdmin(app)
+            val admin = call.requireAdmin(app)
             val existing = db.locationById(call.parameters["id"].orEmpty()) ?: throw ApiException.notFound()
             val body = call.receive<LocationWriteRequest>()
             validateLocation(body)
@@ -719,18 +892,44 @@ fun Route.api(app: AppContext) {
                 patchOf {
                     put("name", body.name.trim())
                     put("description", body.description.trim())
-                    put("photoUrls", kotlinx.serialization.json.JsonArray(body.photoUrls.map { kotlinx.serialization.json.JsonPrimitive(it) }))
+                    put(
+                        "photoUrls",
+                        kotlinx.serialization.json.JsonArray(body.photoUrls.map {
+                            kotlinx.serialization.json.JsonPrimitive(it)
+                        })
+                    )
                     put("openingHours", AppJson.encodeToJsonElement(OpeningHours.serializer(), body.openingHours))
                     put("address", body.address.trim())
                     put("directionsUrl", body.directionsUrl.trim())
-                    put("highlights", kotlinx.serialization.json.JsonArray(body.highlights.map { kotlinx.serialization.json.JsonPrimitive(it.trim()) }))
+                    put(
+                        "highlights",
+                        kotlinx.serialization.json.JsonArray(body.highlights.map {
+                            kotlinx.serialization.json.JsonPrimitive(it.trim())
+                        })
+                    )
                 },
+            )
+            app.track(
+                ActivityType.LOCATION_EDITED,
+                admin.key,
+                entityId = loc.key,
+                entityType = ActivityEntity.LOCATION,
+                summary = loc.name,
             )
             call.respond(loc.toDto())
         }
         delete("/locations/{id}") {
-            call.requireAdmin(app)
-            db.deleteLocation(call.parameters["id"].orEmpty())
+            val admin = call.requireAdmin(app)
+            val id = call.parameters["id"].orEmpty()
+            val existing = db.locationById(id)
+            db.deleteLocation(id)
+            app.track(
+                ActivityType.LOCATION_DISMISSED,
+                admin.key,
+                entityId = id,
+                entityType = ActivityEntity.LOCATION,
+                summary = existing?.name.orEmpty(),
+            )
             call.respond(OkDto())
         }
         get("/location-recs") {
@@ -738,9 +937,17 @@ fun Route.api(app: AppContext) {
             call.respond(db.pendingLocationRecs().mapNotNull { db.toLocationRecDto(it) })
         }
         post("/location-recs/{id}/dismiss") {
-            call.requireAdmin(app)
+            val admin = call.requireAdmin(app)
             val rec = db.locationRecById(call.parameters["id"].orEmpty()) ?: throw ApiException.notFound()
             db.updateLocationRec(rec.key, patchOf { put("status", STATUS_DISMISSED) })
+            app.track(
+                ActivityType.PLACE_IDEA_DISMISSED,
+                admin.key,
+                targetUserId = rec.userId,
+                entityId = rec.key,
+                entityType = ActivityEntity.LOCATION_REC,
+                summary = rec.name,
+            )
             call.respond(OkDto())
         }
         get("/no-shows") {
@@ -748,9 +955,17 @@ fun Route.api(app: AppContext) {
             call.respond(db.pendingNoShows().mapNotNull { db.toNoShowDto(it) })
         }
         post("/no-shows/{id}/review") {
-            call.requireAdmin(app)
+            val admin = call.requireAdmin(app)
             val doc = db.noShowById(call.parameters["id"].orEmpty()) ?: throw ApiException.notFound()
             db.updateNoShow(doc.key, patchOf { put("status", STATUS_REVIEWED) })
+            app.track(
+                ActivityType.NO_SHOW_REVIEWED,
+                admin.key,
+                targetUserId = doc.accusedId,
+                entityId = doc.key,
+                entityType = ActivityEntity.MEET,
+                summary = doc.message,
+            )
             call.respond(OkDto())
         }
     }
@@ -771,6 +986,35 @@ private suspend fun meDto(app: AppContext, user: UserRecord): MeDto {
         verificationPending = !user.verified && app.db.pendingVerification(user.key) != null,
     )
 }
+
+private suspend fun AppContext.track(
+    type: String,
+    actorId: String,
+    targetUserId: String? = null,
+    entityId: String? = null,
+    entityType: String? = null,
+    summary: String = "",
+    at: Long = now(),
+) {
+    runCatching {
+        db.recordActivity(
+            type = type,
+            actorUserId = actorId,
+            createdAt = at,
+            targetUserId = targetUserId,
+            entityId = entityId,
+            entityType = entityType,
+            summary = summary,
+        )
+    }
+}
+
+private suspend fun AppContext.touchActive(userId: String) {
+    runCatching { db.touchUserActive(userId, now()) }
+}
+
+private fun otherMeetUser(meet: MeetRecord, userId: String): String =
+    if (meet.ownerId == userId) meet.guestId else meet.ownerId
 
 private suspend fun inboxDto(app: AppContext, user: UserRecord): InboxDto {
     val incoming = app.db.incomingPitchBacks(user.key).mapNotNull { app.db.toPitchBackDto(it, user.key) }

@@ -488,6 +488,50 @@ html[data-theme="light"] .chip-topic { background: #efe8ff; color: #5b3bb8; }
   max-width: 100%;
 }
 .admin-tabs button.on { background: var(--lime); color: var(--lime-text); }
+
+.admin-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 8px 0 16px;
+}
+.stat-card {
+  background: var(--card);
+  border-radius: 16px;
+  padding: 12px 14px;
+  min-width: 0;
+}
+.stat-card.stat-wide {
+  grid-column: 1 / -1;
+}
+.stat-n {
+  font-size: 1.45rem;
+  font-weight: 800;
+  margin: 0;
+  line-height: 1.1;
+}
+.stat-label {
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 4px 0 0;
+}
+.stat-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+.stat-sub {
+  color: var(--muted);
+  font-size: 0.75rem;
+  margin: 4px 0 0;
+}
+.activity-action {
+  font-weight: 700;
+  margin: 6px 0 8px;
+}
 .pending-pill {
   background: var(--card);
   border-radius: 18px;

@@ -1,13 +1,16 @@
 package app.pitchback.web
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import app.pitchback.api.AdminEventDto
 import app.pitchback.api.AdminPendingDto
+import app.pitchback.api.AdminStatsDto
 import app.pitchback.api.CreatePitchRequest
 import app.pitchback.api.InboxDto
 import app.pitchback.api.LocationDto
@@ -34,8 +37,11 @@ import app.pitchback.domain.meetTimeHasStarted
 import app.pitchback.domain.nextOfferedSlots
 import app.pitchback.domain.validateAvailability
 import kotlin.js.Date
+import kotlinx.browser.document
+import kotlinx.browser.window
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.w3c.dom.events.Event
 import org.jetbrains.compose.web.attributes.ButtonType
 import org.jetbrains.compose.web.attributes.InputType
 import org.jetbrains.compose.web.attributes.selected
@@ -141,7 +147,17 @@ fun PitchScreen(t: T, id: String, user: PublicUser?, lang: AppLang) {
                 } else {
                     val slots = c.nextSlots.map { OfferedSlot(it.at, it.time) }
                     SlotPicker(t, slots, selectedAt) { selectedAt = it }
-                    AiField(t, t.pitchBack, text, { text = it }, "pitchBack", t.enterPitch, null, lang, PITCH_BACK_TEXT_MIN)
+                    AiField(
+                        t,
+                        t.pitchBack,
+                        text,
+                        { text = it },
+                        "pitchBack",
+                        t.enterPitch,
+                        null,
+                        lang,
+                        PITCH_BACK_TEXT_MIN
+                    )
                     GradButton("${t.pitchBack} ⚡", flash) {
                         val slot = selectedAt
                         if (slot == null) {
@@ -250,7 +266,15 @@ fun InboxScreen(t: T, user: PublicUser?, inbox: InboxDto, lang: AppLang, refresh
                     P({ classes("muted") }) { Text("📍 ${t.meetAt} ${pb.locationName}") }
                     MeetSlotLine(t, pb.slotAt)
                     Div({ classes("row-btns") }) {
-                        GradButton(t.acceptPitch) { scope.launch { runCatching { Api.accept(pb.id) }.onFailure { showNotice(it.message) }; refresh() } }
+                        GradButton(t.acceptPitch) {
+                            scope.launch {
+                                runCatching { Api.accept(pb.id) }.onFailure {
+                                    showNotice(
+                                        it.message
+                                    )
+                                }; refresh()
+                            }
+                        }
                         GhostButton(t.dismiss) { scope.launch { runCatching { Api.pass(pb.id) }; refresh() } }
                     }
                 }
@@ -348,7 +372,17 @@ fun MeScreen(
     applyMe: (MeDto) -> Unit,
     onLogout: () -> Unit,
 ) {
-    if (user == null) AuthPanel(t, applyMe) else ProfilePanel(t, user, remainingSlots, adminPending, verificationPending, lang, langOverride, applyMe, onLogout)
+    if (user == null) AuthPanel(t, applyMe) else ProfilePanel(
+        t,
+        user,
+        remainingSlots,
+        adminPending,
+        verificationPending,
+        lang,
+        langOverride,
+        applyMe,
+        onLogout
+    )
 }
 
 @Composable
@@ -365,7 +399,13 @@ private fun AuthPanel(t: T, applyMe: (MeDto) -> Unit) {
             Div({ classes("field") }) { Label { Text(t.name) }; TextInput(name) { onInput { name = it.value } } }
         }
         Div({ classes("field") }) { Label { Text(t.phone) }; TextInput(phone) { onInput { phone = it.value } } }
-        Div({ classes("field") }) { Label { Text(t.password) }; PasswordInput(password) { onInput { password = it.value } } }
+        Div({ classes("field") }) {
+            Label { Text(t.password) }; PasswordInput(password) {
+            onInput {
+                password = it.value
+            }
+        }
+        }
         GradButton(if (register) t.register else t.signIn) {
             scope.launch {
                 try {
@@ -411,8 +451,15 @@ private fun ProfilePanel(
     }
     Div {
         Div({ classes("topbar") }) { H1 { Text(t.me) } }
-        if (photo.isNotBlank()) Img(src = assetUrl(photo), alt = "") { attr("style", "width:88px;height:88px;border-radius:50%;object-fit:cover") }
-        PhotoPicker(t, if (photo.isBlank()) emptyList() else listOf(photo), t.profilePhoto, multiple = false) { photo = it.lastOrNull().orEmpty() }
+        if (photo.isNotBlank()) Img(src = assetUrl(photo), alt = "") {
+            attr(
+                "style",
+                "width:88px;height:88px;border-radius:50%;object-fit:cover"
+            )
+        }
+        PhotoPicker(t, if (photo.isBlank()) emptyList() else listOf(photo), t.profilePhoto, multiple = false) {
+            photo = it.lastOrNull().orEmpty()
+        }
         Div({ classes("field") }) { Label { Text(t.name) }; TextInput(name) { onInput { name = it.value } } }
         Div({ classes("field") }) { Label { Text(t.phone) }; TextInput(phone) { onInput { phone = it.value } } }
         AiField(t, t.intro, intro, { intro = it }, "intro", t.intro, null, lang)
@@ -473,13 +520,20 @@ private fun ProfilePanel(
             }
         }
         if (user.isAdmin) {
-            val total = (adminPending?.pitches ?: 0) + (adminPending?.verifications ?: 0) + (adminPending?.noShows ?: 0) + (adminPending?.locationRecs ?: 0)
+            val total = (adminPending?.pitches ?: 0) + (adminPending?.verifications ?: 0) + (adminPending?.noShows
+                ?: 0) + (adminPending?.locationRecs ?: 0)
             Div({ classes("pending-pill") }) {
                 Div {
                     H3 { Text(t.adminEntry) }
                     P({ classes("muted") }) { Text(t.pendingTasks(total)) }
                 }
-                Button({ classes("btn", "btn-lime"); type(ButtonType.Button); attr("style", "width:auto"); onClick { go(Screen.Admin) } }) { Text(t.admin) }
+                Button({
+                    classes("btn", "btn-lime"); type(ButtonType.Button); attr("style", "width:auto"); onClick {
+                    go(
+                        Screen.Admin
+                    )
+                }
+                }) { Text(t.admin) }
             }
         }
         Div({ classes("section-title") }) { Text("${t.myPitches} · 🔥 $remainingSlots ${t.totalRemainingPitches}") }
@@ -487,16 +541,34 @@ private fun ProfilePanel(
             Div({ classes("card") }) {
                 Div({ classes("card-body") }) {
                     P { Text(p.text.take(100)) }
-                    P({ classes("muted") }) { Text(when (p.status) { "pending" -> t.pending; "approved" -> t.approved; else -> t.dismissed }) }
+                    P({ classes("muted") }) {
+                        Text(
+                            when (p.status) {
+                                "pending" -> t.pending; "approved" -> t.approved; else -> t.dismissed
+                            }
+                        )
+                    }
                     Div({ classes("grid-2") }) {
-                        Button({ classes("btn", "btn-ghost"); type(ButtonType.Button); onClick {
+                        Button({
+                            classes("btn", "btn-ghost"); type(ButtonType.Button); onClick {
                             val n = (p.remainingPitchBacks - 1).coerceAtLeast(0)
-                            scope.launch { runCatching { Api.updateRemaining(p.id, n) }; runCatching { myPitches = Api.myPitches().items } }
-                        } }) { Text("−") }
-                        Button({ classes("btn", "btn-ghost"); type(ButtonType.Button); onClick {
+                            scope.launch {
+                                runCatching { Api.updateRemaining(p.id, n) }; runCatching {
+                                myPitches = Api.myPitches().items
+                            }
+                            }
+                        }
+                        }) { Text("−") }
+                        Button({
+                            classes("btn", "btn-ghost"); type(ButtonType.Button); onClick {
                             val n = (p.remainingPitchBacks + 1).coerceAtMost(99)
-                            scope.launch { runCatching { Api.updateRemaining(p.id, n) }; runCatching { myPitches = Api.myPitches().items } }
-                        } }) { Text("+ ${p.remainingPitchBacks}") }
+                            scope.launch {
+                                runCatching { Api.updateRemaining(p.id, n) }; runCatching {
+                                myPitches = Api.myPitches().items
+                            }
+                            }
+                        }
+                        }) { Text("+ ${p.remainingPitchBacks}") }
                     }
                     Spacer()
                     GhostButton(t.edit) { editing = p }
@@ -571,9 +643,17 @@ private fun CreatePitchForm(
     Div({ classes("field") }) {
         Label { Text(t.remaining) }
         Div({ classes("grid-2") }) {
-            Button({ classes("btn", "btn-ghost"); type(ButtonType.Button); onClick { remaining = (remaining - 1).coerceAtLeast(1) } }) { Text("−") }
+            Button({
+                classes("btn", "btn-ghost"); type(ButtonType.Button); onClick {
+                remaining = (remaining - 1).coerceAtLeast(1)
+            }
+            }) { Text("−") }
             Spacer()
-            Button({ classes("btn", "btn-ghost"); type(ButtonType.Button); onClick { remaining = (remaining + 1).coerceAtMost(99) } }) { Text("+ $remaining") }
+            Button({
+                classes("btn", "btn-ghost"); type(ButtonType.Button); onClick {
+                remaining = (remaining + 1).coerceAtMost(99)
+            }
+            }) { Text("+ $remaining") }
         }
     }
     Div({ classes("field") }) {
@@ -685,12 +765,24 @@ fun PlacesScreen(t: T, user: PublicUser?, lang: AppLang) {
             GradButton(t.signIn) { go(Screen.Me) }
         } else {
             Div({ classes("field") }) { Label { Text(t.placeName) }; TextInput(name) { onInput { name = it.value } } }
-            Div({ classes("field") }) { Label { Text(t.address) }; TextInput(address) { onInput { address = it.value } } }
+            Div({ classes("field") }) {
+                Label { Text(t.address) }; TextInput(address) {
+                onInput {
+                    address = it.value
+                }
+            }
+            }
             AiField(t, t.note, note, { note = it }, "location", t.note, null, lang)
             GradButton(t.submitPlace) {
                 scope.launch {
                     try {
-                        Api.recommendLocation(RecommendLocationRequest(name = name, description = note, address = address))
+                        Api.recommendLocation(
+                            RecommendLocationRequest(
+                                name = name,
+                                description = note,
+                                address = address
+                            )
+                        )
                         name = ""; address = ""; note = ""
                         showNotice(t.placeSubmitted)
                     } catch (e: Throwable) {
@@ -708,7 +800,7 @@ fun AdminScreen(t: T, user: PublicUser?, lang: AppLang) {
         Div({ classes("empty") }) { Text(t.signIn) }
         return
     }
-    var tab by remember { mutableStateOf("pitches") }
+    var tab by remember { mutableStateOf("home") }
     val scope = rememberCoroutineScope()
     var pitches by remember { mutableStateOf(listOf<PitchCardDto>()) }
     var verifications by remember { mutableStateOf(listOf<VerificationDto>()) }
@@ -717,6 +809,27 @@ fun AdminScreen(t: T, user: PublicUser?, lang: AppLang) {
     var recs by remember { mutableStateOf(listOf<LocationRecDto>()) }
     var editing by remember { mutableStateOf<LocationDto?>(null) }
     var noShows by remember { mutableStateOf(listOf<NoShowDto>()) }
+    var stats by remember { mutableStateOf<AdminStatsDto?>(null) }
+    var events by remember { mutableStateOf(listOf<AdminEventDto>()) }
+    var eventsLoading by remember { mutableStateOf(false) }
+    var eventsDone by remember { mutableStateOf(false) }
+    var profileUser by remember { mutableStateOf<PublicUser?>(null) }
+    fun loadEvents(reset: Boolean) {
+        if (eventsLoading) return
+        eventsLoading = true
+        scope.launch {
+            try {
+                val before = if (reset) null else events.lastOrNull()?.createdAt
+                val res = Api.adminActivity(before)
+                events = if (reset) res.items else events + res.items
+                eventsDone = res.items.isEmpty()
+            } catch (e: Throwable) {
+                showNotice(e.message)
+            }
+            eventsLoading = false
+        }
+    }
+
     fun reload() {
         scope.launch {
             runCatching { pitches = Api.adminPitches().items }
@@ -725,9 +838,27 @@ fun AdminScreen(t: T, user: PublicUser?, lang: AppLang) {
             runCatching { locations = Api.adminLocations() }
             runCatching { recs = Api.locationRecs() }
             runCatching { noShows = Api.noShows() }
+            runCatching { stats = Api.adminStats() }
         }
     }
-    LaunchedEffect(Unit) { reload() }
+    LaunchedEffect(Unit) {
+        reload()
+        loadEvents(true)
+    }
+    DisposableEffect(tab, eventsDone, eventsLoading, events.size) {
+        if (tab != "home") {
+            onDispose { }
+        } else {
+            val listener: (Event) -> Unit = {
+                val height = (document.documentElement?.scrollHeight ?: document.body?.scrollHeight ?: 0).toDouble()
+                if (!eventsDone && !eventsLoading && window.scrollY + window.innerHeight > height - 240) {
+                    loadEvents(false)
+                }
+            }
+            window.addEventListener("scroll", listener)
+            onDispose { window.removeEventListener("scroll", listener) }
+        }
+    }
     Div {
         Div({ classes("topbar") }) {
             Button({ classes("icon-btn"); type(ButtonType.Button); onClick { go(Screen.Me) } }) { Text("←") }
@@ -735,7 +866,15 @@ fun AdminScreen(t: T, user: PublicUser?, lang: AppLang) {
             Span {}
         }
         Div({ classes("admin-tabs") }) {
-            listOf("pitches" to t.pitches, "verify" to t.verify, "noshow" to t.noShows, "users" to t.users, "places" to t.locations, "recs" to t.recs).forEach { (id, label) ->
+            listOf(
+                "home" to t.home,
+                "pitches" to t.pitches,
+                "verify" to t.verify,
+                "noshow" to t.noShows,
+                "users" to t.users,
+                "places" to t.locations,
+                "recs" to t.recs
+            ).forEach { (id, label) ->
                 Button({
                     if (tab == id) classes("on")
                     type(ButtonType.Button)
@@ -744,6 +883,7 @@ fun AdminScreen(t: T, user: PublicUser?, lang: AppLang) {
             }
         }
         when (tab) {
+            "home" -> AdminHomeTab(t, stats, events, eventsLoading) { profileUser = it }
             "pitches" -> pitches.forEach { p ->
                 Div({ classes("card") }) {
                     PhotoScroller(p.photoUrls)
@@ -757,6 +897,7 @@ fun AdminScreen(t: T, user: PublicUser?, lang: AppLang) {
                     }
                 }
             }
+
             "verify" -> verifications.forEach { v ->
                 Div({ classes("inbox-card") }) {
                     H3 { Text(v.user.name) }
@@ -767,6 +908,7 @@ fun AdminScreen(t: T, user: PublicUser?, lang: AppLang) {
                     }
                 }
             }
+
             "noshow" -> noShows.forEach { n ->
                 Div({ classes("inbox-card") }) {
                     PersonDetails(n.reporter)
@@ -778,16 +920,24 @@ fun AdminScreen(t: T, user: PublicUser?, lang: AppLang) {
                     GradButton(t.review) { scope.launch { Api.reviewNoShow(n.id); reload() } }
                 }
             }
+
             "users" -> users.forEach { u ->
                 Div({ classes("inbox-card") }) {
                     H3 { Text(u.name + if (u.isAdmin) " · admin" else "") }
                     P({ classes("muted") }) { Text(u.phone) }
                     Div({ classes("grid-2") }) {
                         if (!u.isAdmin) GhostButton(t.promote) { scope.launch { Api.promote(u.id); reload() } }
-                        if (u.id != user.id) GhostButton(if (u.disabled) t.enable else t.disable) { scope.launch { Api.toggleDisable(u.id); reload() } }
+                        if (u.id != user.id) GhostButton(if (u.disabled) t.enable else t.disable) {
+                            scope.launch {
+                                Api.toggleDisable(
+                                    u.id
+                                ); reload()
+                            }
+                        }
                     }
                 }
             }
+
             "places" -> {
                 LocationEditor(t, lang, null) { reload() }
                 locations.forEach { loc ->
@@ -819,6 +969,7 @@ fun AdminScreen(t: T, user: PublicUser?, lang: AppLang) {
                     }
                 }
             }
+
             "recs" -> recs.forEach { r ->
                 Div({ classes("inbox-card") }) {
                     H3 { Text(r.name) }
@@ -828,6 +979,66 @@ fun AdminScreen(t: T, user: PublicUser?, lang: AppLang) {
                 }
             }
         }
+    }
+    profileUser?.let { u -> ProfileDialog(t, u) { profileUser = null } }
+}
+
+@Composable
+private fun AdminHomeTab(
+    t: T,
+    stats: AdminStatsDto?,
+    events: List<AdminEventDto>,
+    loading: Boolean,
+    onProfile: (PublicUser) -> Unit,
+) {
+    stats?.let { s ->
+        Div({ classes("admin-stats") }) {
+            Div({ classes("stat-card", "stat-wide") }) {
+                P({ classes("stat-label") }) { Text(t.activeUsers) }
+                Div({ classes("stat-row") }) {
+                    Div {
+                        P({ classes("stat-n") }) { Text("${s.activeUsersToday}") }
+                        P({ classes("stat-sub") }) { Text(t.today) }
+                    }
+                    Div {
+                        P({ classes("stat-n") }) { Text("${s.activeUsersWeek}") }
+                        P({ classes("stat-sub") }) { Text(t.thisWeek) }
+                    }
+                    Div {
+                        P({ classes("stat-n") }) { Text("${s.activeUsersMonth}") }
+                        P({ classes("stat-sub") }) { Text(t.thisMonth) }
+                    }
+                }
+            }
+            AdminStatCard(t.users, s.users)
+            AdminStatCard(t.pitches, s.pitches)
+            AdminStatCard(t.locations, s.locations)
+            AdminStatCard(t.activeMeets, s.activeMeets)
+        }
+    }
+    Div({ classes("section-title") }) { Text(t.activity) }
+    if (events.isEmpty() && !loading) Div({ classes("empty") }) { Text(t.emptyActivity) }
+    events.forEach { event ->
+        Div({ classes("inbox-card") }) {
+            val actor = event.actor
+            if (actor != null) PersonDetails(actor) { onProfile(actor) }
+            P({ classes("activity-action") }) { Text(t.activityLabel(event.type)) }
+            if (event.summary.isNotBlank()) P({ classes("preview") }) { Text(event.summary) }
+            val target = event.target
+            if (target != null && target.id != actor?.id) {
+                PersonDetails(target) { onProfile(target) }
+            }
+            P({ classes("muted") }) { Text(formatMeetSlot(t, event.createdAt)) }
+        }
+    }
+    if (loading) Div({ classes("empty") }) { Text(t.loading) }
+}
+
+@Composable
+private fun AdminStatCard(label: String, value: Int) {
+    Div({ classes("stat-card") }) {
+        P({ classes("stat-n") }) { Text("$value") }
+        P({ classes("stat-label") }) { Text(label) }
     }
 }
 
@@ -858,8 +1069,20 @@ private fun LocationEditor(t: T, lang: AppLang, existing: LocationDto?, onDone: 
             Div({ classes("field") }) { Label { Text(t.name) }; TextInput(name) { onInput { name = it.value } } }
             AiField(t, t.description, description, { description = it }, "location", t.description, null, lang)
             PhotoPicker(t, photos) { photos = it }
-            Div({ classes("field") }) { Label { Text(t.address) }; TextInput(address) { onInput { address = it.value } } }
-            Div({ classes("field") }) { Label { Text(t.directions) }; TextInput(directions) { onInput { directions = it.value } } }
+            Div({ classes("field") }) {
+                Label { Text(t.address) }; TextInput(address) {
+                onInput {
+                    address = it.value
+                }
+            }
+            }
+            Div({ classes("field") }) {
+                Label { Text(t.directions) }; TextInput(directions) {
+                onInput {
+                    directions = it.value
+                }
+            }
+            }
             Div({ classes("field") }) { Label { Text(t.highlights) }; TextInput(h1) { onInput { h1 = it.value } } }
             Div({ classes("field") }) { TextInput(h2) { onInput { h2 = it.value } } }
             Div({ classes("field") }) { TextInput(h3) { onInput { h3 = it.value } } }

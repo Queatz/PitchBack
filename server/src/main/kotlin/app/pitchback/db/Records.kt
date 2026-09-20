@@ -22,6 +22,7 @@ data class UserRecord(
     val disabled: Boolean = false,
     val language: String? = null,
     val createdAt: Long,
+    val lastActiveAt: Long = 0,
 ) {
     fun toPublic(self: Boolean = false) = PublicUser(
         id = key,
@@ -152,6 +153,18 @@ data class SessionRecord(
     val value: String,
     val updatedAt: Long,
     val expiresAt: Long,
+)
+
+@Serializable
+data class ActivityEventRecord(
+    @SerialName("_key") val key: String,
+    val type: String,
+    val actorUserId: String,
+    val targetUserId: String? = null,
+    val entityId: String? = null,
+    val entityType: String? = null,
+    val summary: String = "",
+    val createdAt: Long,
 )
 
 fun defaultOpeningHours() = OpeningHours(

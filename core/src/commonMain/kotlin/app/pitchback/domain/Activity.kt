@@ -1,0 +1,40 @@
+package app.pitchback.domain
+
+object ActivityType {
+    const val USER_CREATED = "user_created"
+    const val USER_VERIFICATION_REQUESTED = "user_verification_requested"
+    const val USER_VERIFIED = "user_verified"
+    const val USER_VERIFICATION_DISMISSED = "user_verification_dismissed"
+    const val USER_PROMOTED = "user_promoted"
+    const val USER_DISABLED = "user_disabled"
+    const val USER_ENABLED = "user_enabled"
+    const val PITCH_CREATED = "pitch_created"
+    const val PITCH_APPROVED = "pitch_approved"
+    const val PITCH_EDITED = "pitch_edited"
+    const val PITCH_DISMISSED = "pitch_dismissed"
+    const val PITCH_DELETED = "pitch_deleted"
+    const val PITCH_BACK_SENT = "pitch_back_sent"
+    const val PITCH_BACK_ACCEPTED = "pitch_back_accepted"
+    const val PITCH_BACK_DISMISSED = "pitch_back_dismissed"
+    const val PITCH_BACK_CANCELLED = "pitch_back_cancelled"
+    const val FINAL_MESSAGE_SENT = "final_message_sent"
+    const val MEET_ENDED = "meet_ended"
+    const val MEET_CANCELED = "meet_canceled"
+    const val NO_SHOW_REPORTED = "no_show_reported"
+    const val NO_SHOW_REVIEWED = "no_show_reviewed"
+    const val LOCATION_CREATED = "location_created"
+    const val LOCATION_EDITED = "location_edited"
+    const val LOCATION_DISMISSED = "location_dismissed"
+    const val PLACE_IDEA_SUBMITTED = "place_idea_submitted"
+    const val PLACE_IDEA_DISMISSED = "place_idea_dismissed"
+}
+
+object ActivityEntity {
+    const val USER = "user"
+    const val PITCH = "pitch"
+    const val PITCH_BACK = "pitchBack"
+    const val MEET = "meet"
+    const val VERIFICATION = "verification"
+    const val LOCATION = "location"
+    const val LOCATION_REC = "locationRec"
+}

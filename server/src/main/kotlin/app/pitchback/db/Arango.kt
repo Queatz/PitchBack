@@ -64,7 +64,7 @@ class Arango(private val config: AppConfig) {
         }
         val collections = listOf(
             "users", "locations", "pitches", "pitchBacks", "meets",
-            "verifications", "locationRecs", "noShows", "sessions",
+            "verifications", "locationRecs", "noShows", "sessions", "activityEvents",
         )
         for (name in collections) {
             val res = http.request(dbPath("/_api/collection")) {
@@ -81,7 +81,9 @@ class Arango(private val config: AppConfig) {
             }
         }
         ensureIndex("users", listOf("phone"), unique = true)
+        ensureIndex("users", listOf("lastActiveAt"), unique = false)
         ensureIndex("pitches", listOf("createdAt"), unique = false)
+        ensureIndex("activityEvents", listOf("createdAt"), unique = false)
         ensureIndex("pitches", listOf("status"), unique = false)
         ensureIndex("pitchBacks", listOf("toUserId"), unique = false)
         ensureIndex("pitchBacks", listOf("fromUserId"), unique = false)

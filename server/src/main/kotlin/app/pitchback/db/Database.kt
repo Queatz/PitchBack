@@ -1,6 +1,9 @@
 package app.pitchback.db
 
+import app.pitchback.api.AdminEventDto
+import app.pitchback.api.AdminEventsResponse
 import app.pitchback.api.AdminPendingDto
+import app.pitchback.api.AdminStatsDto
 import app.pitchback.api.LocationDto
 import app.pitchback.api.LocationRecDto
 import app.pitchback.api.MeetDto
@@ -20,13 +23,108 @@ import app.pitchback.domain.STATUS_APPROVED
 import app.pitchback.domain.STATUS_PENDING
 import app.pitchback.domain.phonesMatch
 import app.pitchback.domain.pitchIsPublic
+import app.pitchback.time.IctPeriods
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import java.util.UUID
 
 class Database(val arango: Arango) {
 
     suspend fun userCount(): Int =
         arango.queryOne<Int>("RETURN LENGTH(users)") ?: 0
+
+    suspend fun touchUserActive(userId: String, at: Long) {
+        updateUser(userId, patchOf { put("lastActiveAt", at) })
+    }
+
+    suspend fun recordActivity(
+        type: String,
+        actorUserId: String,
+        createdAt: Long,
+        targetUserId: String? = null,
+        entityId: String? = null,
+        entityType: String? = null,
+        summary: String = "",
+    ) {
+        arango.insert(
+            "activityEvents",
+            ActivityEventRecord(
+                key = UUID.randomUUID().toString(),
+                type = type,
+                actorUserId = actorUserId,
+                targetUserId = targetUserId,
+                entityId = entityId,
+                entityType = entityType,
+                summary = summary.take(240),
+                createdAt = createdAt,
+            ),
+        )
+        runCatching { touchUserActive(actorUserId, createdAt) }
+    }
+
+    suspend fun usersByIds(ids: Collection<String>): Map<String, UserRecord> {
+        val unique = ids.filter { it.isNotBlank() }.distinct()
+        if (unique.isEmpty()) return emptyMap()
+        val users: List<UserRecord> = arango.queryList(
+            "FOR u IN users FILTER u._key IN @ids RETURN u",
+            mapOf("ids" to JsonArray(unique.map { JsonPrimitive(it) })),
+        )
+        return users.associateBy { it.key }
+    }
+
+    suspend fun adminStats(now: Long): AdminStatsDto {
+        val day = IctPeriods.startOfDay(now)
+        val week = IctPeriods.startOfWeek(now)
+        val month = IctPeriods.startOfMonth(now)
+        return AdminStatsDto(
+            activeUsersToday = countActiveUsers(day),
+            activeUsersWeek = countActiveUsers(week),
+            activeUsersMonth = countActiveUsers(month),
+            users = userCount(),
+            pitches = arango.queryOne<Int>("RETURN LENGTH(pitches)") ?: 0,
+            locations = arango.queryOne<Int>("RETURN LENGTH(locations)") ?: 0,
+            activeMeets = arango.queryOne(
+                "RETURN LENGTH(FOR m IN meets FILTER m.status == @s RETURN 1)",
+                mapOf("s" to v(STATUS_ACTIVE)),
+            ) ?: 0,
+        )
+    }
+
+    private suspend fun countActiveUsers(since: Long): Int =
+        arango.queryOne(
+            "RETURN LENGTH(FOR u IN users FILTER u.lastActiveAt >= @since RETURN 1)",
+            mapOf("since" to v(since)),
+        ) ?: 0
+
+    suspend fun activityFeed(before: Long, limit: Int): AdminEventsResponse {
+        val records: List<ActivityEventRecord> = arango.queryList(
+            """
+            FOR e IN activityEvents
+              FILTER e.createdAt < @before
+              SORT e.createdAt DESC
+              LIMIT @limit
+              RETURN e
+            """.trimIndent(),
+            mapOf("before" to v(before), "limit" to v(limit)),
+        )
+        val users = usersByIds(records.flatMap { listOfNotNull(it.actorUserId, it.targetUserId) })
+        val items = records.map { e ->
+            AdminEventDto(
+                id = e.key,
+                type = e.type,
+                createdAt = e.createdAt,
+                actor = users[e.actorUserId]?.toPublic(),
+                target = e.targetUserId?.let { users[it]?.toPublic() },
+                entityId = e.entityId,
+                entityType = e.entityType,
+                summary = e.summary,
+            )
+        }
+        return AdminEventsResponse(items, items.lastOrNull()?.createdAt)
+    }
 
     suspend fun userById(id: String): UserRecord? =
         arango.queryOne("FOR u IN users FILTER u._key == @id RETURN u", mapOf("id" to v(id)))
@@ -419,7 +517,15 @@ class Database(val arango: Arango) {
 
     suspend fun toLocationRecDto(doc: LocationRecRecord): LocationRecDto? {
         val user = userById(doc.userId) ?: return null
-        return LocationRecDto(doc.key, user.toPublic(), doc.name, doc.description, doc.address, doc.status, doc.createdAt)
+        return LocationRecDto(
+            doc.key,
+            user.toPublic(),
+            doc.name,
+            doc.description,
+            doc.address,
+            doc.status,
+            doc.createdAt
+        )
     }
 
     fun toAdminUser(user: UserRecord) = UserAdminDto(

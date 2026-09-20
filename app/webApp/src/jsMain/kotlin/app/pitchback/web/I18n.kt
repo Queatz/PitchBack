@@ -1,5 +1,7 @@
 package app.pitchback.web
 
+import app.pitchback.domain.ActivityType
+
 enum class AppLang { EN, VI }
 
 class T(val lang: AppLang) {
@@ -10,15 +12,23 @@ class T(val lang: AppLang) {
     val inbox get() = s("Inbox", "Hộp thư")
     val me get() = s("Me", "Tôi")
     val admin get() = s("Admin", "Quản trị")
+    val home get() = s("Home", "Trang chủ")
+    val activity get() = s("Latest activity", "Hoạt động mới")
+    val emptyActivity get() = s("No activity yet.", "Chưa có hoạt động.")
+    val activeUsers get() = s("Active users", "Người dùng hoạt động")
+    val today get() = s("Today", "Hôm nay")
+    val thisWeek get() = s("This week", "Tuần này")
+    val thisMonth get() = s("This month", "Tháng này")
     val pitchBack get() = s("Pitch back", "Ngỏ lời")
     val thePitch get() = s("The pitch", "Lời ngỏ")
     val theLocation get() = s("The location", "Địa điểm")
     val profileUpdated get() = s("Profile updated", "Đã cập nhật hồ sơ")
     val verifiedBadge get() = s("Verified", "Đã xác minh")
-    val confirmDismissPitch get() = s(
-        "Remove this pitch completely? This can't be undone.",
-        "Xóa hẳn lời ngỏ này? Không hoàn tác được.",
-    )
+    val confirmDismissPitch
+        get() = s(
+            "Remove this pitch completely? This can't be undone.",
+            "Xóa hẳn lời ngỏ này? Không hoàn tác được.",
+        )
     val acceptPitch get() = s("Accept pitch", "Chấp nhận lời ngỏ")
     val dismiss get() = s("Dismiss", "Bỏ qua")
     val cancel get() = s("Cancel", "Hủy")
@@ -38,9 +48,21 @@ class T(val lang: AppLang) {
     val haveAccount get() = s("Already have an account? Sign in", "Đã có tài khoản? Đăng nhập")
     val signInToPitch get() = s("Sign in to pitch back", "Đăng nhập để ngỏ lời")
     val signInInbox get() = s("Sign in to see pitch backs and meets.", "Đăng nhập để xem ngỏ lời và buổi hẹn.")
-    val emptyFeed get() = s("No pitches yet. Be the first — or ask an admin to add a location.", "Chưa có lời ngỏ nào. Hãy tạo lời ngỏ đầu tiên — hoặc nhờ admin thêm địa điểm.")
-    val emptyLocations get() = s("No locations yet. Ask an admin to add one.", "Chưa có địa điểm nào. Nhờ admin thêm một địa điểm.")
-    val emptyInbox get() = s("Nothing waiting. Pitch back on a live pitch to start a meet.", "Chưa có gì. Ngỏ lời trên một lời ngỏ đang mở để bắt đầu buổi hẹn.")
+    val emptyFeed
+        get() = s(
+            "No pitches yet. Be the first — or ask an admin to add a location.",
+            "Chưa có lời ngỏ nào. Hãy tạo lời ngỏ đầu tiên — hoặc nhờ admin thêm địa điểm."
+        )
+    val emptyLocations
+        get() = s(
+            "No locations yet. Ask an admin to add one.",
+            "Chưa có địa điểm nào. Nhờ admin thêm một địa điểm."
+        )
+    val emptyInbox
+        get() = s(
+            "Nothing waiting. Pitch back on a live pitch to start a meet.",
+            "Chưa có gì. Ngỏ lời trên một lời ngỏ đang mở để bắt đầu buổi hẹn."
+        )
     val enterPitch get() = s("Enter your pitch here...", "Nhập lời ngỏ của bạn...")
     val generateAi get() = s("Write with AI", "Viết bằng AI")
     val extraAi get() = s("Anything you want the AI to know?", "Bạn muốn AI biết thêm gì?")
@@ -52,10 +74,11 @@ class T(val lang: AppLang) {
     val createPitch get() = s("Create a pitch", "Tạo lời ngỏ")
     val submitReview get() = s("Submit for review", "Gửi duyệt")
     val pending get() = s("Pending review", "Chờ duyệt")
-    val pitchSubmitted get() = s(
-        "Great! Your pitch will be visible when it passes review.",
-        "Tuyệt! Lời ngỏ sẽ hiện khi được duyệt.",
-    )
+    val pitchSubmitted
+        get() = s(
+            "Great! Your pitch will be visible when it passes review.",
+            "Tuyệt! Lời ngỏ sẽ hiện khi được duyệt.",
+        )
     val approved get() = s("Live", "Đang mở")
     val dismissed get() = s("Dismissed", "Đã từ chối")
     val remaining get() = s("Remaining pitch backs", "Lượt ngỏ lời còn")
@@ -65,7 +88,11 @@ class T(val lang: AppLang) {
     val photos get() = s("Photos", "Ảnh")
     val photo get() = s("Photo", "Ảnh")
     val availableUntil get() = s("Available until (optional)", "Hết hạn (tuỳ chọn)")
-    val allowSocial get() = s("Allow posting photos on socials after we meet", "Cho phép đăng ảnh lên mạng sau buổi gặp")
+    val allowSocial
+        get() = s(
+            "Allow posting photos on socials after we meet",
+            "Cho phép đăng ảnh lên mạng sau buổi gặp"
+        )
     val recommendPlace get() = s("Recommend a place", "Gợi ý địa điểm")
     val placeName get() = s("Place name", "Tên quán")
     val note get() = s("Note", "Ghi chú")
@@ -122,10 +149,11 @@ class T(val lang: AppLang) {
     val enable get() = s("Enable", "Mở khóa")
     val locations get() = s("Locations", "Địa điểm")
     val recs get() = s("Place ideas", "Gợi ý quán")
-    val placeForumIntro get() = s(
-        "A quiet board for places worth meeting in. Suggest a café, park, or corner; an admin reviews it before it appears when people write a pitch.",
-        "Một góc góp ý những nơi đáng để gặp nhau. Gợi ý quán, công viên, hay một góc phố; admin sẽ duyệt trước khi hiện khi mọi người viết lời ngỏ.",
-    )
+    val placeForumIntro
+        get() = s(
+            "A quiet board for places worth meeting in. Suggest a café, park, or corner; an admin reviews it before it appears when people write a pitch.",
+            "Một góc góp ý những nơi đáng để gặp nhau. Gợi ý quán, công viên, hay một góc phố; admin sẽ duyệt trước khi hiện khi mọi người viết lời ngỏ.",
+        )
     val placeSubmitted get() = s("Thanks — we'll review this place.", "Cảm ơn — chúng mình sẽ xem địa điểm này.")
     val submitPlace get() = s("Submit place idea", "Gửi gợi ý địa điểm")
     val noShows get() = s("No-shows", "Vắng mặt")
@@ -143,7 +171,11 @@ class T(val lang: AppLang) {
     val chooseThisPlace get() = s("Meet here", "Gặp ở đây")
     val viewOnMap get() = s("View on map", "Xem bản đồ")
     val edit get() = s("Edit", "Sửa")
-    val confirmDeleteLocation get() = s("Remove this location? Pitches using it may break.", "Xóa địa điểm này? Các lời ngỏ đang dùng nó có thể lỗi.")
+    val confirmDeleteLocation
+        get() = s(
+            "Remove this location? Pitches using it may break.",
+            "Xóa địa điểm này? Các lời ngỏ đang dùng nó có thể lỗi."
+        )
     val somethingWrong get() = s("Something went wrong", "Có lỗi xảy ra")
     val mon get() = s("Mon", "T2")
     val tue get() = s("Tue", "T3")
@@ -162,10 +194,53 @@ class T(val lang: AppLang) {
     val noTimes get() = s("No upcoming times on this pitch", "Lời ngỏ này chưa có giờ trống")
     val months: List<String>
         get() = if (lang == AppLang.VI) {
-            listOf("thg 1", "thg 2", "thg 3", "thg 4", "thg 5", "thg 6", "thg 7", "thg 8", "thg 9", "thg 10", "thg 11", "thg 12")
+            listOf(
+                "thg 1",
+                "thg 2",
+                "thg 3",
+                "thg 4",
+                "thg 5",
+                "thg 6",
+                "thg 7",
+                "thg 8",
+                "thg 9",
+                "thg 10",
+                "thg 11",
+                "thg 12"
+            )
         } else {
             listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
         }
+
+    fun activityLabel(type: String): String = when (type) {
+        ActivityType.USER_CREATED -> s("created an account", "đã tạo tài khoản")
+        ActivityType.USER_VERIFICATION_REQUESTED -> s("requested verification", "đã gửi xác minh")
+        ActivityType.USER_VERIFIED -> s("verified a user", "đã xác minh người dùng")
+        ActivityType.USER_VERIFICATION_DISMISSED -> s("dismissed verification", "đã từ chối xác minh")
+        ActivityType.USER_PROMOTED -> s("made a user admin", "đã cấp admin")
+        ActivityType.USER_DISABLED -> s("disabled a user", "đã khóa người dùng")
+        ActivityType.USER_ENABLED -> s("enabled a user", "đã mở khóa người dùng")
+        ActivityType.PITCH_CREATED -> s("created a pitch", "đã tạo lời ngỏ")
+        ActivityType.PITCH_APPROVED -> s("approved a pitch", "đã duyệt lời ngỏ")
+        ActivityType.PITCH_EDITED -> s("edited a pitch", "đã sửa lời ngỏ")
+        ActivityType.PITCH_DISMISSED -> s("dismissed a pitch", "đã từ chối lời ngỏ")
+        ActivityType.PITCH_DELETED -> s("deleted a pitch", "đã xóa lời ngỏ")
+        ActivityType.PITCH_BACK_SENT -> s("sent a pitch back", "đã ngỏ lời")
+        ActivityType.PITCH_BACK_ACCEPTED -> s("accepted a pitch back", "đã chấp nhận ngỏ lời")
+        ActivityType.PITCH_BACK_DISMISSED -> s("dismissed a pitch back", "đã bỏ qua ngỏ lời")
+        ActivityType.PITCH_BACK_CANCELLED -> s("canceled a pitch back", "đã hủy ngỏ lời")
+        ActivityType.FINAL_MESSAGE_SENT -> s("sent a final message", "đã gửi tin nhắn cuối")
+        ActivityType.MEET_ENDED -> s("ended a meet", "đã kết thúc buổi hẹn")
+        ActivityType.MEET_CANCELED -> s("canceled a meet", "đã hủy buổi hẹn")
+        ActivityType.NO_SHOW_REPORTED -> s("reported a no-show", "đã báo không đến")
+        ActivityType.NO_SHOW_REVIEWED -> s("reviewed a no-show", "đã xem báo không đến")
+        ActivityType.LOCATION_CREATED -> s("added a location", "đã thêm địa điểm")
+        ActivityType.LOCATION_EDITED -> s("edited a location", "đã sửa địa điểm")
+        ActivityType.LOCATION_DISMISSED -> s("removed a location", "đã xóa địa điểm")
+        ActivityType.PLACE_IDEA_SUBMITTED -> s("submitted a place idea", "đã gửi gợi ý quán")
+        ActivityType.PLACE_IDEA_DISMISSED -> s("dismissed a place idea", "đã bỏ gợi ý quán")
+        else -> type
+    }
 
     fun pendingTasks(count: Int): String = when {
         lang == AppLang.VI -> if (count == 1) "1 việc đang chờ" else "$count việc đang chờ"

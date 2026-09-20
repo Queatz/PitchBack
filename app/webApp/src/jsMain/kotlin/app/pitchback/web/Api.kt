@@ -1,7 +1,9 @@
 package app.pitchback.web
 
 import app.pitchback.AppJson
+import app.pitchback.api.AdminEventsResponse
 import app.pitchback.api.AdminPendingDto
+import app.pitchback.api.AdminStatsDto
 import app.pitchback.api.AiStreamRequest
 import app.pitchback.api.CreatePitchRequest
 import app.pitchback.api.EndMeetRequest
@@ -207,6 +209,11 @@ object Api {
         }
 
     suspend fun adminPending(): AdminPendingDto = get("/api/admin/pending")
+    suspend fun adminStats(): AdminStatsDto = get("/api/admin/stats")
+    suspend fun adminActivity(before: Long? = null): AdminEventsResponse {
+        val q = if (before != null) "?before=$before" else ""
+        return get("/api/admin/activity$q")
+    }
     suspend fun adminPitches(): FeedResponse = get("/api/admin/pitches")
     suspend fun approvePitch(id: String) { request("/api/admin/pitches/$id/approve", "POST", "{}") }
     suspend fun dismissPitch(id: String) { request("/api/admin/pitches/$id/dismiss", "POST", "{}") }
