@@ -648,7 +648,6 @@ private fun CreatePitchForm(
                 remaining = (remaining - 1).coerceAtLeast(1)
             }
             }) { Text("−") }
-            Spacer()
             Button({
                 classes("btn", "btn-ghost"); type(ButtonType.Button); onClick {
                 remaining = (remaining + 1).coerceAtMost(99)

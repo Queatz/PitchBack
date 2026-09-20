@@ -26,6 +26,7 @@ import app.pitchback.domain.horizontalScrollDelta
 import app.pitchback.domain.monFirstDays
 import app.pitchback.domain.openStatus
 import app.pitchback.domain.parseMinutes
+import app.pitchback.domain.scaledPhotoSize
 import app.pitchback.domain.settlePhotoWheel
 import app.pitchback.domain.wheelDeltaPx
 import kotlin.math.PI
@@ -63,6 +64,8 @@ import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.events.Event
 import org.w3c.dom.events.MouseEvent
 import org.w3c.dom.events.WheelEvent
+import org.w3c.files.Blob
+import org.w3c.files.File
 import org.w3c.files.FileList
 import org.w3c.files.get
 import kotlin.coroutines.resume
@@ -443,6 +446,7 @@ fun PhotoPicker(
     urls: List<String>,
     label: String = t.photos,
     multiple: Boolean = true,
+    maxPixelSize: Int? = 1200,
     onUrls: (List<String>) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -471,7 +475,8 @@ fun PhotoPicker(
                 items.forEachIndexed { i, f ->
                     uploadCurrent = i + 1
                     try {
-                        next += Api.upload(f) { p ->
+                        val photo = photoForUpload(f, maxPixelSize)
+                        next += Api.upload(photo) { p ->
                             uploadFraction = ((completed + p * weights[i]) / totalWeight).coerceIn(0.0, 1.0)
                         }
                         completed += weights[i]
@@ -545,6 +550,76 @@ fun PhotoPicker(
                 PhotoScroller(urls)
             }
         }
+    }
+}
+
+private suspend fun photoForUpload(file: File, maxPixelSize: Int?): File {
+    if (maxPixelSize == null || maxPixelSize <= 0) return file
+    return try {
+        val img = loadFileImage(file) ?: return file
+        val srcW = img.naturalWidth
+        val srcH = img.naturalHeight
+        val (w, h) = scaledPhotoSize(srcW, srcH, maxPixelSize)
+        if (w == srcW && h == srcH) return file
+        val canvas = document.createElement("canvas") as HTMLCanvasElement
+        canvas.width = w
+        canvas.height = h
+        val ctx = canvas.getContext("2d") as CanvasRenderingContext2D
+        ctx.drawImage(img, 0.0, 0.0, w.toDouble(), h.toDouble())
+        val mime = outputPhotoMime(file.type)
+        val blob = canvasToBlob(canvas, mime) ?: return file
+        blobToFile(blob, fileNameForMime(file.name, mime), mime, file.asDynamic().lastModified)
+    } catch (_: Throwable) {
+        file
+    }
+}
+
+private fun outputPhotoMime(type: String): String = when (type.lowercase()) {
+    "image/png" -> "image/png"
+    "image/webp" -> "image/webp"
+    "image/jpeg", "image/jpg" -> "image/jpeg"
+    else -> "image/jpeg"
+}
+
+private fun fileNameForMime(name: String, mime: String): String {
+    val ext = when (mime) {
+        "image/png" -> "png"
+        "image/webp" -> "webp"
+        else -> "jpg"
+    }
+    val base = name.substringBeforeLast('.', name).ifBlank { "photo" }
+    return "$base.$ext"
+}
+
+private fun blobToFile(blob: Blob, name: String, type: String, lastModified: dynamic): File {
+    val options = js("{}")
+    options.type = type
+    if (lastModified != null) options.lastModified = lastModified
+    return js("new File([blob], name, options)").unsafeCast<File>()
+}
+
+private suspend fun canvasToBlob(canvas: HTMLCanvasElement, mime: String): Blob? =
+    suspendCancellableCoroutine { cont ->
+        if (mime == "image/png") {
+            canvas.toBlob({ cont.resume(it) }, mime)
+        } else {
+            canvas.toBlob({ cont.resume(it) }, mime, 0.92)
+        }
+    }
+
+private suspend fun loadFileImage(file: File): HTMLImageElement? {
+    val url = window.asDynamic().URL.createObjectURL(file) as String
+    return try {
+        suspendCancellableCoroutine { cont ->
+            val img = document.createElement("img") as HTMLImageElement
+            img.addEventListener("load", { cont.resume(img) })
+            img.addEventListener("error", { cont.resume(null) })
+            img.src = url
+        }
+    } catch (_: Throwable) {
+        null
+    } finally {
+        window.asDynamic().URL.revokeObjectURL(url)
     }
 }
 
