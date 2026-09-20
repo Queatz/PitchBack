@@ -146,6 +146,14 @@ data class NoShowRecord(
     val message: String = "",
 )
 
+@Serializable
+data class SessionRecord(
+    @SerialName("_key") val key: String,
+    val value: String,
+    val updatedAt: Long,
+    val expiresAt: Long,
+)
+
 fun defaultOpeningHours() = OpeningHours(
     mon = DayHours(),
     tue = DayHours(),

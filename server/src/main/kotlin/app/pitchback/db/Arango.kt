@@ -64,7 +64,7 @@ class Arango(private val config: AppConfig) {
         }
         val collections = listOf(
             "users", "locations", "pitches", "pitchBacks", "meets",
-            "verifications", "locationRecs", "noShows",
+            "verifications", "locationRecs", "noShows", "sessions",
         )
         for (name in collections) {
             val res = http.request(dbPath("/_api/collection")) {
@@ -87,6 +87,7 @@ class Arango(private val config: AppConfig) {
         ensureIndex("pitchBacks", listOf("fromUserId"), unique = false)
         ensureIndex("meets", listOf("ownerId"), unique = false)
         ensureIndex("meets", listOf("guestId"), unique = false)
+        ensureTtlIndex("sessions", "expiresAt", expireAfter = 0)
         log.info("ArangoDB ready at {} / {}", config.arangoUrl, config.arangoDatabase)
     }
 
@@ -100,6 +101,21 @@ class Arango(private val config: AppConfig) {
                     put("type", "persistent")
                     put("unique", unique)
                     put("fields", JsonArray(fields.map { JsonPrimitive(it) }))
+                },
+            )
+        }
+    }
+
+    private suspend fun ensureTtlIndex(collection: String, field: String, expireAfter: Long) {
+        http.request(dbPath("/_api/index?collection=$collection")) {
+            method = HttpMethod.Post
+            header(HttpHeaders.Authorization, auth)
+            contentType(ContentType.Application.Json)
+            setBody(
+                buildJsonObject {
+                    put("type", "ttl")
+                    put("expireAfter", expireAfter)
+                    put("fields", JsonArray(listOf(JsonPrimitive(field))))
                 },
             )
         }

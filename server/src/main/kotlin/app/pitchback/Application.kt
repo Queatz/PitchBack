@@ -4,7 +4,9 @@ import app.pitchback.ai.QwenClient
 import app.pitchback.api.ErrorBody
 import app.pitchback.auth.UserSession
 import app.pitchback.db.Arango
+import app.pitchback.db.ArangoSessionStorage
 import app.pitchback.db.Database
+import app.pitchback.db.SESSION_MAX_AGE_SECONDS
 import app.pitchback.http.ApiException
 import app.pitchback.i18n.ApiMessages
 import app.pitchback.routes.api
@@ -69,10 +71,10 @@ fun Application.module(config: AppConfig = AppConfig.load()) {
     }
     install(SSE)
     install(Sessions) {
-        cookie<UserSession>("saigon_session") {
+        cookie<UserSession>("saigon_session", ArangoSessionStorage(arango)) {
             cookie.path = "/"
             cookie.httpOnly = true
-            cookie.maxAgeInSeconds = 60 * 60 * 24 * 30
+            cookie.maxAgeInSeconds = SESSION_MAX_AGE_SECONDS
             cookie.secure = config.isProd
             cookie.extensions["SameSite"] = "Lax"
             serializer = kotlinxSessionSerializer()
