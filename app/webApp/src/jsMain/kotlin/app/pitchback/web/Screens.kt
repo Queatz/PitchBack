@@ -451,12 +451,6 @@ private fun ProfilePanel(
     }
     Div {
         Div({ classes("topbar") }) { H1 { Text(t.me) } }
-        if (photo.isNotBlank()) Img(src = assetUrl(photo), alt = "") {
-            attr(
-                "style",
-                "width:88px;height:88px;border-radius:50%;object-fit:cover"
-            )
-        }
         PhotoPicker(t, if (photo.isBlank()) emptyList() else listOf(photo), t.profilePhoto, multiple = false) {
             photo = it.lastOrNull().orEmpty()
         }

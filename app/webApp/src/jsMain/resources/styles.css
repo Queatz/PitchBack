@@ -33,7 +33,7 @@ html[data-theme="light"] {
   --line: rgba(26, 18, 40, 0.08);
   --text: #1a1228;
   --muted: #6b6280;
-  --lime: #c4ef00;
+  --lime: #b2d220;
   --lime-text: #162000;
   --nav: #ffffff;
   --chip: #efe8ff;
@@ -109,6 +109,7 @@ img { max-width: 100%; display: block; }
   z-index: 5;
   background: linear-gradient(var(--bg), color-mix(in srgb, var(--bg) 80%, transparent));
   border-radius: 28px;
+  backdrop-filter: blur(2px);
 }
 .topbar h1 {
   margin: 0;
