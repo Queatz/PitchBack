@@ -196,11 +196,19 @@ fun PhotoScroller(urls: List<String>, onOpen: (() -> Unit)? = null) {
             Button({
                 classes("scroller-btn", "prev")
                 type(ButtonType.Button)
+                onMouseDown { it.stopPropagation() }
+                onTouchStart { it.stopPropagation() }
+                onMouseUp { it.stopPropagation() }
+                onTouchEnd { it.stopPropagation() }
                 onClick { it.stopPropagation(); it.preventDefault(); step(-1) }
             }) { Text("‹") }
             Button({
                 classes("scroller-btn", "next")
                 type(ButtonType.Button)
+                onMouseDown { it.stopPropagation() }
+                onTouchStart { it.stopPropagation() }
+                onMouseUp { it.stopPropagation() }
+                onTouchEnd { it.stopPropagation() }
                 onClick { it.stopPropagation(); it.preventDefault(); step(1) }
             }) { Text("›") }
             Div({ classes("dots") }) {
