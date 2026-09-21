@@ -956,11 +956,11 @@ html[data-theme="light"] .chip-topic { background: #efe8ff; color: #5b3bb8; }
 }
 .photo-thumb.ghost {
   position: fixed;
+  margin: 0;
   z-index: 80;
   pointer-events: none;
   overflow: hidden;
   box-shadow: 0 14px 30px rgba(8, 4, 16, 0.35);
-  transform: scale(1.06);
   opacity: 0.94;
   cursor: grabbing;
 }

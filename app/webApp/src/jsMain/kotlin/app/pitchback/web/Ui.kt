@@ -21,6 +21,7 @@ import app.pitchback.domain.OpenStatus
 import app.pitchback.domain.applyPhotoWheel
 import app.pitchback.domain.availabilityFromMonFirst
 import app.pitchback.domain.condensedHours
+import app.pitchback.domain.dragGhostTopLeft
 import app.pitchback.domain.formatMinutes
 import app.pitchback.domain.horizontalScrollDelta
 import app.pitchback.domain.monFirstDays
@@ -117,6 +118,7 @@ fun PhotoScroller(urls: List<String>, onOpen: (() -> Unit)? = null) {
         scrubbing = false
         session.sync(index, 0.0, false)
     }
+
     fun finishDrag() {
         if (!dragging || scrubbing) return
         when {
@@ -670,13 +672,16 @@ private fun PhotoThumbs(urls: List<String>, onUrls: (List<String>) -> Unit) {
                     onDragStart { it.preventDefault() }
                     onMouseDown { ev ->
                         if (ev.button.toInt() != 0) return@onMouseDown
-                        val target = (ev.nativeEvent.currentTarget as? HTMLElement) ?: return@onMouseDown
-                        session.press(indexForUrl(urls, url), ev.clientX.toDouble(), ev.clientY.toDouble(), target)
+                        val native = ev.nativeEvent
+                        val target = (native.currentTarget as? HTMLElement) ?: return@onMouseDown
+                        val point = pointerPoint(native) ?: return@onMouseDown
+                        session.press(indexForUrl(urls, url), point.first, point.second, target)
                     }
                     onTouchStart { ev ->
-                        val t = ev.touches.item(0) ?: return@onTouchStart
-                        val target = (ev.nativeEvent.currentTarget as? HTMLElement) ?: return@onTouchStart
-                        session.press(indexForUrl(urls, url), t.clientX.toDouble(), t.clientY.toDouble(), target)
+                        val native = ev.nativeEvent
+                        val target = (native.currentTarget as? HTMLElement) ?: return@onTouchStart
+                        val point = pointerPoint(native) ?: return@onTouchStart
+                        session.press(indexForUrl(urls, url), point.first, point.second, target)
                         ev.preventDefault()
                     }
                 }) {
@@ -700,13 +705,10 @@ private fun PhotoThumbs(urls: List<String>, onUrls: (List<String>) -> Unit) {
     if (active != null && active.from in urls.indices) {
         Div({
             classes("photo-thumb", "ghost")
-            attr(
-                "style",
-                "left:${active.pointerX - active.grabX}px;top:${active.pointerY - active.grabY}px;" +
-                    "width:${active.width}px;height:${active.height}px",
-            )
+            attr("style", photoGhostStyle(active))
             ref { el ->
                 session.ghost = el
+                session.onGhostReady(el)
                 onDispose { if (session.ghost === el) session.ghost = null }
             }
         }) {
@@ -724,7 +726,21 @@ private data class PhotoThumbDrag(
     val grabY: Double,
     val width: Double,
     val height: Double,
+    val originX: Double = 0.0,
+    val originY: Double = 0.0,
 )
+
+private fun photoGhostStyle(drag: PhotoThumbDrag): String {
+    val (left, top) = dragGhostTopLeft(
+        drag.pointerX, drag.pointerY, drag.grabX, drag.grabY, drag.originX, drag.originY,
+    )
+    return "position:fixed;left:${left}px;top:${top}px;" +
+            "width:${drag.width}px;height:${drag.height}px;margin:0;" +
+            "transform:scale(1.06);transform-origin:${drag.grabX}px ${drag.grabY}px"
+}
+
+private fun stylePx(value: String): Double =
+    value.removeSuffix("px").trim().toDoubleOrNull() ?: 0.0
 
 private class PhotoThumbSession {
     var urls: List<String> = emptyList()
@@ -741,6 +757,8 @@ private class PhotoThumbSession {
     private var grabY: Double = 0.0
     private var width: Double = 0.0
     private var height: Double = 0.0
+    private var originX: Double = 0.0
+    private var originY: Double = 0.0
     private var started: Boolean = false
     private var listening: Boolean = false
     private val onMove: (Event) -> Unit = { move(it) }
@@ -758,13 +776,26 @@ private class PhotoThumbSession {
         height = r.height
         started = false
         drag = null
+        originX = 0.0
+        originY = 0.0
         listen()
+    }
+
+    fun onGhostReady(el: HTMLElement) {
+        recaptureOrigin(el)
+        val current = drag ?: return
+        val next = current.copy(originX = originX, originY = originY)
+        drag = next
+        writeGhost(el, next)
+        if (next.originX != current.originX || next.originY != current.originY) setDrag(next)
     }
 
     fun cancel() {
         unlisten()
         started = false
         drag = null
+        originX = 0.0
+        originY = 0.0
         clearThumbMotion(container)
         setDrag(null)
     }
@@ -808,11 +839,42 @@ private class PhotoThumbSession {
         val over = container?.let { pointerThumbIndex(it, x, y, current.over) } ?: current.over
         val prevOver = current.over
         if (over != prevOver) rects = captureThumbRects(container)
-        current = current.copy(over = over, pointerX = x, pointerY = y)
+        current = current.copy(over = over, pointerX = x, pointerY = y, originX = originX, originY = originY)
         drag = current
-        ghost?.style?.setProperty("left", "${x - current.grabX}px")
-        ghost?.style?.setProperty("top", "${y - current.grabY}px")
+        ghost?.let { writeGhost(it, current) }
         if (over != prevOver) setDrag(current)
+    }
+
+    private fun recaptureOrigin(el: HTMLElement) {
+        el.style.position = "fixed"
+        el.style.margin = "0px"
+        val localLeft = stylePx(el.style.left)
+        val localTop = stylePx(el.style.top)
+        if (el.style.left.isEmpty() && el.style.top.isEmpty()) {
+            originX = 0.0
+            originY = 0.0
+            return
+        }
+        val prevTransform = el.style.transform
+        el.style.transform = "none"
+        val r = el.getBoundingClientRect()
+        el.style.transform = prevTransform
+        originX = r.left - localLeft
+        originY = r.top - localTop
+    }
+
+    private fun writeGhost(el: HTMLElement, current: PhotoThumbDrag) {
+        val (left, top) = dragGhostTopLeft(
+            current.pointerX, current.pointerY, current.grabX, current.grabY, current.originX, current.originY,
+        )
+        el.style.position = "fixed"
+        el.style.margin = "0px"
+        el.style.left = "${left}px"
+        el.style.top = "${top}px"
+        el.style.width = "${current.width}px"
+        el.style.height = "${current.height}px"
+        el.style.transform = "scale(1.06)"
+        el.style.setProperty("transform-origin", "${current.grabX}px ${current.grabY}px")
     }
 
     private fun finish() {
@@ -821,6 +883,8 @@ private class PhotoThumbSession {
         val didDrag = started
         started = false
         drag = null
+        originX = 0.0
+        originY = 0.0
         clearThumbMotion(container)
         setDrag(null)
         if (!didDrag || current == null) return
@@ -857,7 +921,7 @@ internal data class PhotoThumbBox(
     val centerY get() = top + height / 2
     fun contains(x: Double, y: Double, pad: Double = 0.0): Boolean =
         x >= left - pad && x <= left + width + pad &&
-            y >= top - pad && y <= top + height + pad
+                y >= top - pad && y <= top + height + pad
 }
 
 internal fun dropThumbIndex(
@@ -1048,7 +1112,13 @@ fun ThemeSwitch(label: String, checked: Boolean, onChecked: (Boolean) -> Unit) {
 }
 
 @Composable
-fun LocationBlock(t: T, loc: LocationDto, header: String? = null, selectLabel: String? = null, onSelect: (() -> Unit)? = null) {
+fun LocationBlock(
+    t: T,
+    loc: LocationDto,
+    header: String? = null,
+    selectLabel: String? = null,
+    onSelect: (() -> Unit)? = null,
+) {
     if (header != null) Div({ classes("quote-label") }) { Text(header) }
     Div({ classes("card") }) {
         PhotoScroller(loc.photoUrls)
@@ -1170,8 +1240,10 @@ private fun hoursNowLine(t: T, status: OpenStatus, today: Int, jsDays: List<Stri
         status.open -> t.openNow
         time != null && status.nextDay != null && status.nextDay == today ->
             "${t.closedNow} · ${t.opensAt(time)}"
+
         time != null && status.nextDay != null ->
             "${t.closedNow} · ${t.opensAt("${jsDays[status.nextDay!!]} $time")}"
+
         else -> t.closedNow
     }
 }
@@ -1413,7 +1485,14 @@ private fun heartPath(ctx: CanvasRenderingContext2D, cx: Double, cy: Double, siz
     ctx.closePath()
 }
 
-private fun drawCover(ctx: CanvasRenderingContext2D, img: HTMLImageElement?, x: Double, y: Double, w: Double, h: Double) {
+private fun drawCover(
+    ctx: CanvasRenderingContext2D,
+    img: HTMLImageElement?,
+    x: Double,
+    y: Double,
+    w: Double,
+    h: Double,
+) {
     if (img == null || img.naturalWidth == 0 || img.naturalHeight == 0) {
         ctx.fillStyle = "#3a243f"
         ctx.fillRect(x, y, w, h)

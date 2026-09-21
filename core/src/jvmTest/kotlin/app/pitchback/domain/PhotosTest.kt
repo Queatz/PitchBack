@@ -27,4 +27,14 @@ class PhotosTest {
         assertEquals(4000 to 3000, scaledPhotoSize(4000, 3000, 0))
         assertEquals(4000 to 3000, scaledPhotoSize(4000, 3000, -1))
     }
+
+    @Test
+    fun ghostStaysUnderPointerWhenGrabOffsetIsApplied() {
+        assertEquals(180.0 to 90.0, dragGhostTopLeft(220.0, 130.0, 40.0, 40.0))
+    }
+
+    @Test
+    fun ghostSubtractsFixedContainingBlockOrigin() {
+        assertEquals(50.0 to 40.0, dragGhostTopLeft(200.0, 160.0, 30.0, 40.0, 120.0, 80.0))
+    }
 }
