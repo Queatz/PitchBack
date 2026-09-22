@@ -19,6 +19,10 @@ import app.pitchback.domain.DEFAULT_MEET_TIME
 import app.pitchback.domain.OfferedSlot
 import app.pitchback.domain.OpenStatus
 import app.pitchback.domain.applyPhotoWheel
+import app.pitchback.domain.pitchShareUrl
+import app.pitchback.domain.shareAvatarCircle
+import app.pitchback.domain.sharePhotoRowSlots
+import app.pitchback.domain.wrapShareLines
 import app.pitchback.domain.availabilityFromMonFirst
 import app.pitchback.domain.condensedHours
 import app.pitchback.domain.dragGhostTopLeft
@@ -1405,6 +1409,56 @@ fun LocationPickerDialog(
 }
 
 @Composable
+fun SharePitchDialog(t: T, card: PitchCardDto, onClose: () -> Unit) {
+    val link = remember(card.id) { pitchShareUrl(window.location.origin, card.id) }
+    var dataUrl by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+    LaunchedEffect(card.id, card.text, card.photoUrls, card.author.photoUrl, card.author.name) {
+        dataUrl = renderPitchSharePng(
+            photoUrls = card.photoUrls.map { assetUrl(it) },
+            profileUrl = card.author.photoUrl?.let { assetUrl(it) }.orEmpty(),
+            profileName = card.author.name,
+            text = card.text,
+        )
+    }
+    Div({ classes("modal-back"); onClick { onClose() } }) {
+        Div({
+            classes("modal", "share-pitch")
+            onClick { it.stopPropagation() }
+        }) {
+            if (dataUrl != null) {
+                Img(src = dataUrl!!, alt = t.share) { classes("share-pitch-img") }
+            } else {
+                Div({ classes("empty") }) { Text(t.loading) }
+            }
+            P({ classes("share-pitch-link") }) { Text(link) }
+            GradButton(t.copyImage) {
+                val url = dataUrl ?: return@GradButton
+                scope.launch {
+                    try {
+                        copyPngDataUrl(url)
+                        showNotice(t.copied)
+                    } catch (e: Throwable) {
+                        showCaught(e)
+                    }
+                }
+            }
+            GradButton(t.copyLink) {
+                scope.launch {
+                    try {
+                        copyTextToClipboard(link)
+                        showNotice(t.copied)
+                    } catch (e: Throwable) {
+                        showCaught(e)
+                    }
+                }
+            }
+            GhostButton(t.dismiss, onClose)
+        }
+    }
+}
+
+@Composable
 fun WeMetSticker(t: T, meUrl: String?, otherUrl: String?, onClose: () -> Unit) {
     var dataUrl by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(meUrl, otherUrl, t.weMet) {
@@ -1544,6 +1598,100 @@ private fun downloadDataUrl(dataUrl: String, name: String) {
     a.download = name
     a.click()
 }
+
+private suspend fun renderPitchSharePng(
+    photoUrls: List<String>,
+    profileUrl: String,
+    profileName: String,
+    text: String,
+): String {
+    val size = 720.0
+    val canvas = document.createElement("canvas") as HTMLCanvasElement
+    canvas.width = 720
+    canvas.height = 720
+    val ctx = canvas.getContext("2d") as CanvasRenderingContext2D
+    ctx.fillStyle = "#1a1526"
+    ctx.fillRect(0.0, 0.0, size, size)
+    if (photoUrls.isEmpty()) {
+        val grad = ctx.createLinearGradient(0.0, 0.0, size, size / 2)
+        grad.addColorStop(0.0, "#24102c")
+        grad.addColorStop(1.0, "#ff3d8a")
+        ctx.fillStyle = grad
+        ctx.fillRect(0.0, 0.0, size, size / 2)
+    } else {
+        val loaded = photoUrls.map { loadCanvasImage(it) }
+        val slots = sharePhotoRowSlots(loaded.size, size, 12.0)
+        loaded.zip(slots).forEach { (img, slot) ->
+            drawCover(ctx, img, slot.x, slot.y, slot.width, slot.height)
+        }
+    }
+    ctx.fillStyle = "#14101c"
+    ctx.fillRect(0.0, size / 2, size, size / 2)
+    val (cx, cy, r) = shareAvatarCircle(size)
+    val profile = loadCanvasImage(profileUrl)
+    ctx.save()
+    ctx.beginPath()
+    ctx.arc(cx, cy, r, 0.0, PI * 2)
+    ctx.closePath()
+    ctx.clip()
+    if (profile != null) {
+        drawCover(ctx, profile, cx - r, cy - r, r * 2, r * 2)
+    } else {
+        ctx.fillStyle = "#2a203c"
+        ctx.fillRect(cx - r, cy - r, r * 2, r * 2)
+        ctx.fillStyle = "#d6ff3c"
+        ctx.font = "800 72px Be Vietnam Pro, sans-serif"
+        ctx.asDynamic().textAlign = "center"
+        ctx.asDynamic().textBaseline = "middle"
+        ctx.fillText(profileName.take(1).uppercase().ifBlank { "?" }, cx, cy)
+    }
+    ctx.restore()
+    ctx.strokeStyle = "#d6ff3c"
+    ctx.lineWidth = 8.0
+    ctx.beginPath()
+    ctx.arc(cx, cy, r, 0.0, PI * 2)
+    ctx.stroke()
+    val pad = 36.0
+    val lineHeight = 40.0
+    val textTop = cy + r + 24.0
+    val maxLines = ((size - 28.0 - textTop) / lineHeight).toInt().coerceAtLeast(1)
+    ctx.fillStyle = "#f5f2ff"
+    ctx.font = "700 28px Be Vietnam Pro, sans-serif"
+    ctx.asDynamic().textAlign = "center"
+    ctx.asDynamic().textBaseline = "top"
+    val lines = wrapShareLines(text, size - pad * 2, maxLines) { s -> ctx.measureText(s).width }
+    lines.forEachIndexed { i, line ->
+        ctx.fillText(line, size / 2, textTop + i * lineHeight)
+    }
+    return canvas.toDataURL("image/png")
+}
+
+private suspend fun copyTextToClipboard(text: String) {
+    val clip = window.navigator.asDynamic().clipboard
+    if (clip != null) {
+        clip.writeText(text).unsafeCast<kotlin.js.Promise<dynamic>>().await()
+        return
+    }
+    val area = document.createElement("textarea")
+    area.asDynamic().value = text
+    document.body?.appendChild(area)
+    area.asDynamic().select()
+    document.asDynamic().execCommand("copy")
+    document.body?.removeChild(area)
+}
+
+private suspend fun copyPngDataUrl(dataUrl: String) {
+    val blob = window.fetch(dataUrl).await().blob().await()
+    val item = clipboardPngItem(blob)
+    val items = js("[]")
+    items.asDynamic().push(item)
+    window.navigator.asDynamic().clipboard.write(items)
+        .unsafeCast<kotlin.js.Promise<dynamic>>()
+        .await()
+}
+
+private fun clipboardPngItem(blob: Blob): dynamic =
+    js("new ClipboardItem({ 'image/png': blob })")
 
 fun dismissNotice() {
     appNotice = null

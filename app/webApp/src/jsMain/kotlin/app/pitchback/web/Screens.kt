@@ -125,6 +125,7 @@ fun PitchScreen(t: T, id: String, user: PublicUser?, lang: AppLang) {
     var selectedAt by remember { mutableStateOf<Long?>(null) }
     var flash by remember { mutableStateOf(false) }
     var profileUser by remember { mutableStateOf<PublicUser?>(null) }
+    var shareOpen by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     LaunchedEffect(id) {
         try {
@@ -145,7 +146,14 @@ fun PitchScreen(t: T, id: String, user: PublicUser?, lang: AppLang) {
         } else {
             PhotoScroller(c.photoUrls)
             Div({ classes("card-body") }) {
-                PersonDetails(c.author) { profileUser = c.author }
+                Div({ classes("person-row") }) {
+                    PersonDetails(c.author) { profileUser = c.author }
+                    Button({
+                        classes("btn", "btn-ghost", "share-pitch-btn")
+                        type(ButtonType.Button)
+                        onClick { shareOpen = true }
+                    }) { Text(t.share) }
+                }
                 Div({ classes("meta") }) {
                     Span({ classes("chip"); classes("chip-green") }) { Text("⚡ ${t.pitchesLeft(c.remainingPitchBacks)}") }
                     if (c.topic.isNotBlank()) Span({ classes("chip"); classes("chip-topic") }) { Text(c.topic) }
@@ -193,6 +201,7 @@ fun PitchScreen(t: T, id: String, user: PublicUser?, lang: AppLang) {
         }
     }
     profileUser?.let { u -> ProfileDialog(t, u) { profileUser = null } }
+    if (shareOpen && c != null) SharePitchDialog(t, c) { shareOpen = false }
 }
 
 @Composable
