@@ -556,6 +556,15 @@ private fun ProfilePanel(
         myPitches.forEach { p ->
             Div({ classes("card") }) {
                 Div({ classes("card-body") }) {
+                    if (p.photoUrls.isNotEmpty()) {
+                        Div({ classes("pitch-photo-previews") }) {
+                            p.photoUrls.forEach { url ->
+                                Img(src = assetUrl(url), alt = "") {
+                                    classes("pitch-photo-preview")
+                                }
+                            }
+                        }
+                    }
                     P { Text(p.text.take(100)) }
                     P({ classes("muted") }) {
                         Text(

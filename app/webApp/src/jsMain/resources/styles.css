@@ -211,6 +211,19 @@ img { max-width: 100%; display: block; }
   min-width: 0;
   overflow-wrap: anywhere;
 }
+.pitch-photo-previews {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.pitch-photo-preview {
+  width: 80px;
+  height: 80px;
+  flex: 0 0 80px;
+  border-radius: 16px;
+  object-fit: cover;
+  display: block;
+}
 .photo-scroller {
   position: relative;
   overflow: hidden;
