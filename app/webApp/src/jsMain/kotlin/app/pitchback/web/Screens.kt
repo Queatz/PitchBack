@@ -616,7 +616,9 @@ private fun ProfilePanel(
         GhostButton(t.recs) { go(Screen.Places) }
         Spacer()
         GhostButton(t.signOut) {
-            scope.launch { runCatching { Api.logout() }; onLogout() }
+            showConfirm(t.signOut, t.confirmSignOut, t.signOut) {
+                scope.launch { runCatching { Api.logout() }; onLogout() }
+            }
         }
     }
 }

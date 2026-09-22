@@ -35,6 +35,11 @@ class T(val lang: AppLang) {
     val save get() = s("Save", "Lưu")
     val signIn get() = s("Sign in", "Đăng nhập")
     val signOut get() = s("Sign out", "Đăng xuất")
+    val confirmSignOut
+        get() = s(
+            "Sign out of your account?",
+            "Đăng xuất khỏi tài khoản?",
+        )
     val register get() = s("Create account", "Tạo tài khoản")
     val name get() = s("Name", "Tên")
     val phone get() = s("Phone", "Số điện thoại")
