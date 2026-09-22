@@ -1654,7 +1654,8 @@ private suspend fun renderPitchSharePng(
     val pad = 36.0
     val lineHeight = 40.0
     val textTop = cy + r + 24.0
-    val maxLines = ((size - 28.0 - textTop) / lineHeight).toInt().coerceAtLeast(1)
+    val brandY = 640.0
+    val maxLines = ((brandY - 40.0 - textTop) / lineHeight).toInt().coerceAtLeast(1)
     ctx.fillStyle = "#f5f2ff"
     ctx.font = "700 28px Be Vietnam Pro, sans-serif"
     ctx.asDynamic().textAlign = "center"
@@ -1663,6 +1664,11 @@ private suspend fun renderPitchSharePng(
     lines.forEachIndexed { i, line ->
         ctx.fillText(line, size / 2, textTop + i * lineHeight)
     }
+    ctx.fillStyle = "#d4ff3f"
+    ctx.font = "700 22px Be Vietnam Pro, sans-serif"
+    ctx.asDynamic().textAlign = "center"
+    ctx.asDynamic().textBaseline = "alphabetic"
+    ctx.fillText("ranh.app", size / 2, brandY)
     return canvas.toDataURL("image/png")
 }
 
@@ -1682,16 +1688,10 @@ private suspend fun copyTextToClipboard(text: String) {
 
 private suspend fun copyPngDataUrl(dataUrl: String) {
     val blob = window.fetch(dataUrl).await().blob().await()
-    val item = clipboardPngItem(blob)
-    val items = js("[]")
-    items.asDynamic().push(item)
-    window.navigator.asDynamic().clipboard.write(items)
+    js("navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])")
         .unsafeCast<kotlin.js.Promise<dynamic>>()
         .await()
 }
-
-private fun clipboardPngItem(blob: Blob): dynamic =
-    js("new ClipboardItem({ 'image/png': blob })")
 
 fun dismissNotice() {
     appNotice = null

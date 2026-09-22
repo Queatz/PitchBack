@@ -652,7 +652,12 @@ html[data-theme="light"] .chip-topic { background: #efe8ff; color: #5b3bb8; }
   font-size: 0.88rem;
   margin-top: 6px;
 }
-.share-pitch { text-align: center; }
+.share-pitch {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
 .share-pitch-img {
   width: min(82vw, 360px);
   aspect-ratio: 1;
@@ -668,7 +673,6 @@ html[data-theme="light"] .chip-topic { background: #efe8ff; color: #5b3bb8; }
   word-break: break-all;
   color: var(--muted);
   font-size: 0.85rem;
-  margin: 0 0 14px;
 }
 .person-card { display: flex; gap: 12px; align-items: center; margin: 6px 0 10px; }
 .person-card h3 { margin: 0; font-size: 1.05rem; }
