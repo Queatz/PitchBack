@@ -439,6 +439,24 @@ html[data-theme="light"] .chip-topic { background: #efe8ff; color: #5b3bb8; }
   color: var(--muted);
   padding: 48px;
 }
+.welcome-banner {
+  width: 100%;
+  background: var(--lime);
+  color: var(--lime-text);
+  border-radius: 20px;
+  padding: 16px;
+  margin-bottom: 14px;
+  box-shadow: var(--shadow);
+  animation: rise 0.35s ease both;
+}
+.welcome-banner p {
+  margin: 0 0 12px;
+  line-height: 1.45;
+  font-size: 1.5rem;
+}
+.welcome-banner > button.btn.btn-ghost {
+  color: inherit;
+}
 .inbox-card {
   background: var(--card);
   border-radius: 20px;

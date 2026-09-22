@@ -60,12 +60,16 @@ import org.jetbrains.compose.web.dom.Select
 import org.jetbrains.compose.web.dom.Span
 import org.jetbrains.compose.web.dom.Text
 import org.jetbrains.compose.web.dom.TextInput
+import kotlin.time.Duration.Companion.milliseconds
+
+private var inboxWelcomeDismissed = false
 
 @Composable
 fun FeedScreen(t: T, user: PublicUser?, remainingSlots: Int, tick: Int) {
     var items by remember { mutableStateOf(listOf<PitchCardDto>()) }
     var loading by remember { mutableStateOf(false) }
     var done by remember { mutableStateOf(false) }
+    var welcomeDismissed by remember { mutableStateOf(inboxWelcomeDismissed) }
     val scope = rememberCoroutineScope()
     fun load(reset: Boolean) {
         if (loading) return
@@ -92,6 +96,15 @@ fun FeedScreen(t: T, user: PublicUser?, remainingSlots: Int, tick: Int) {
         Div({ classes("topbar") }) {
             H1 { Text(t.pitches); Span({ classes("spark") }) { Text("✦") } }
             if (user != null) Div({ classes("flame") }) { Text("🔥 "); Span { Text("$remainingSlots") } }
+        }
+        if (user == null && !welcomeDismissed) {
+            Div({ classes("welcome-banner") }) {
+                P { Text(t.welcomeInbox) }
+                GhostButton(t.dismiss) {
+                    inboxWelcomeDismissed = true
+                    welcomeDismissed = true
+                }
+            }
         }
         if (items.isEmpty() && !loading) Div({ classes("empty") }) { Text(t.emptyFeed) }
         Div({ classes("feed-grid") }) {
@@ -197,7 +210,7 @@ fun InboxScreen(t: T, user: PublicUser?, inbox: InboxDto, lang: AppLang, refresh
         while (true) {
             nowMs = Date.now().toLong()
             val next = inbox.meets.mapNotNull { it.slotAt }.filter { it > nowMs }.minOrNull() ?: break
-            delay((next - nowMs).coerceIn(250L, 30_000L))
+            delay((next - nowMs).coerceIn(250L, 30_000L).milliseconds)
         }
     }
     Div {

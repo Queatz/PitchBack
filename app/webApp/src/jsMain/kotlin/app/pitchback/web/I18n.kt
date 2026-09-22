@@ -48,6 +48,11 @@ class T(val lang: AppLang) {
     val haveAccount get() = s("Already have an account? Sign in", "Đã có tài khoản? Đăng nhập")
     val signInToPitch get() = s("Sign in to pitch back", "Đăng nhập để ngỏ lời")
     val signInInbox get() = s("Sign in to see pitch backs and meets.", "Đăng nhập để xem ngỏ lời và buổi hẹn.")
+    val welcomeInbox
+        get() = s(
+            "Welcome to Saigon's 1-on-1 meet and talk hub! Read pitches from people, then pitch them back. Meet for tea the same day.",
+            "Chào mừng đến trung tâm gặp và trò chuyện 1-1 của Sài Gòn! Đọc lời ngỏ của mọi người, rồi ngỏ lời lại. Gặp uống trà trong ngày.",
+        )
     val emptyFeed
         get() = s(
             "No pitches yet. Be the first — or ask an admin to add a location.",
