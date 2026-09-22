@@ -23,3 +23,25 @@ fun dragGhostTopLeft(
     originY: Double = 0.0,
 ): Pair<Double, Double> =
     (pointerX - grabX - originX) to (pointerY - grabY - originY)
+
+fun movedPhotoIndex(from: Int, to: Int, index: Int): Int {
+    if (from == to) return index
+    return when {
+        index == from -> to
+        from < to && index in (from + 1)..to -> index - 1
+        to < from && index in to until from -> index + 1
+        else -> index
+    }
+}
+
+fun photoThumbShift(
+    from: Int,
+    to: Int,
+    index: Int,
+    slots: List<Pair<Double, Double>>,
+): Pair<Double, Double> {
+    val dest = movedPhotoIndex(from, to, index)
+    val start = slots.getOrNull(index) ?: return 0.0 to 0.0
+    val end = slots.getOrNull(dest) ?: return 0.0 to 0.0
+    return (end.first - start.first) to (end.second - start.second)
+}

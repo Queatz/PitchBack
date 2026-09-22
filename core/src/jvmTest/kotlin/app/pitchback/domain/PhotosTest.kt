@@ -37,4 +37,27 @@ class PhotosTest {
     fun ghostSubtractsFixedContainingBlockOrigin() {
         assertEquals(50.0 to 40.0, dragGhostTopLeft(200.0, 160.0, 30.0, 40.0, 120.0, 80.0))
     }
+
+    @Test
+    fun movedPhotoIndexSwapsNeighborWhenDraggedForward() {
+        assertEquals(1, movedPhotoIndex(0, 1, 0))
+        assertEquals(0, movedPhotoIndex(0, 1, 1))
+        assertEquals(2, movedPhotoIndex(0, 1, 2))
+    }
+
+    @Test
+    fun movedPhotoIndexShiftsRangeWhenDraggedBackward() {
+        assertEquals(0, movedPhotoIndex(2, 0, 2))
+        assertEquals(1, movedPhotoIndex(2, 0, 0))
+        assertEquals(2, movedPhotoIndex(2, 0, 1))
+    }
+
+    @Test
+    fun neighborShiftsIntoVacatedSlotWithoutChangingOwnLayoutSlot() {
+        val slots = listOf(0.0 to 0.0, 100.0 to 0.0, 200.0 to 0.0)
+        assertEquals(-100.0 to 0.0, photoThumbShift(0, 1, 1, slots))
+        assertEquals(100.0 to 0.0, photoThumbShift(0, 1, 0, slots))
+        assertEquals(0.0 to 0.0, photoThumbShift(0, 1, 2, slots))
+        assertEquals(0.0 to 0.0, photoThumbShift(0, 0, 1, slots))
+    }
 }

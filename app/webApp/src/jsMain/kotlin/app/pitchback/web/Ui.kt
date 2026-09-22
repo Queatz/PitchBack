@@ -3,6 +3,7 @@ package app.pitchback.web
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -31,6 +32,7 @@ import app.pitchback.domain.horizontalScrollDelta
 import app.pitchback.domain.monFirstDays
 import app.pitchback.domain.openStatus
 import app.pitchback.domain.parseMinutes
+import app.pitchback.domain.photoThumbShift
 import app.pitchback.domain.scaledPhotoSize
 import app.pitchback.domain.settlePhotoWheel
 import app.pitchback.domain.wheelDeltaPx
@@ -648,15 +650,13 @@ private fun PhotoThumbs(urls: List<String>, onUrls: (List<String>) -> Unit) {
     DisposableEffect(Unit) {
         onDispose { session.cancel() }
     }
-    DisposableEffect(drag?.over) {
-        val id = window.requestAnimationFrame {
-            val el = session.container ?: return@requestAnimationFrame
-            session.rects = animateThumbRects(el, session.rects)
-        }
-        onDispose { window.cancelAnimationFrame(id) }
+    SideEffect {
+        val pending = session.settleUrls ?: return@SideEffect
+        if (urls != pending) return@SideEffect
+        session.settleUrls = null
+        clearThumbMotion(session.container)
     }
 
-    val display = if (drag == null) urls else movedPhotoUrls(urls, drag!!.from, drag!!.over)
     Div({
         classes("photo-thumbs")
         if (drag != null) classes("dragging")
@@ -665,8 +665,8 @@ private fun PhotoThumbs(urls: List<String>, onUrls: (List<String>) -> Unit) {
             onDispose { if (session.container === el) session.container = null }
         }
     }) {
-        display.forEachIndexed { index, url ->
-            val isSlot = drag != null && index == drag!!.over
+        urls.forEachIndexed { index, url ->
+            val isSlot = drag != null && index == drag!!.from
             key(url) {
                 Div({
                     classes("photo-thumb")
@@ -679,13 +679,13 @@ private fun PhotoThumbs(urls: List<String>, onUrls: (List<String>) -> Unit) {
                         val native = ev.nativeEvent
                         val target = (native.currentTarget as? HTMLElement) ?: return@onMouseDown
                         val point = pointerPoint(native) ?: return@onMouseDown
-                        session.press(indexForUrl(urls, url), point.first, point.second, target)
+                        session.press(index, point.first, point.second, target)
                     }
                     onTouchStart { ev ->
                         val native = ev.nativeEvent
                         val target = (native.currentTarget as? HTMLElement) ?: return@onTouchStart
                         val point = pointerPoint(native) ?: return@onTouchStart
-                        session.press(indexForUrl(urls, url), point.first, point.second, target)
+                        session.press(index, point.first, point.second, target)
                         ev.preventDefault()
                     }
                 }) {
@@ -697,8 +697,7 @@ private fun PhotoThumbs(urls: List<String>, onUrls: (List<String>) -> Unit) {
                         onTouchStart { it.stopPropagation() }
                         onClick { ev ->
                             ev.stopPropagation()
-                            val original = indexForUrl(urls, url)
-                            if (original >= 0) onUrls(urls.filterIndexed { i, _ -> i != original })
+                            onUrls(urls.filterIndexed { i, _ -> i != index })
                         }
                     }) { Text("✕") }
                 }
@@ -753,7 +752,8 @@ private class PhotoThumbSession {
     var ghost: HTMLElement? = null
     var drag: PhotoThumbDrag? = null
     var setDrag: (PhotoThumbDrag?) -> Unit = {}
-    var rects: Map<String, Pair<Double, Double>> = emptyMap()
+    var settleUrls: List<String>? = null
+    var slots: List<PhotoThumbBox> = emptyList()
     private var pressFrom: Int = -1
     private var pressX: Double = 0.0
     private var pressY: Double = 0.0
@@ -782,6 +782,7 @@ private class PhotoThumbSession {
         drag = null
         originX = 0.0
         originY = 0.0
+        settleUrls = null
         listen()
     }
 
@@ -800,6 +801,8 @@ private class PhotoThumbSession {
         drag = null
         originX = 0.0
         originY = 0.0
+        settleUrls = null
+        slots = emptyList()
         clearThumbMotion(container)
         setDrag(null)
     }
@@ -832,7 +835,7 @@ private class PhotoThumbSession {
         if (current == null) {
             if (abs(x - pressX) < 8 && abs(y - pressY) < 8) return
             event.preventDefault()
-            rects = captureThumbRects(container)
+            slots = captureThumbSlots(container)
             current = PhotoThumbDrag(pressFrom, pressFrom, x, y, grabX, grabY, width, height)
             started = true
             drag = current
@@ -840,13 +843,12 @@ private class PhotoThumbSession {
             return
         }
         event.preventDefault()
-        val over = container?.let { pointerThumbIndex(it, x, y, current.over) } ?: current.over
+        val over = if (slots.isNotEmpty()) dropThumbIndex(slots, x, y, current.over) else current.over
         val prevOver = current.over
-        if (over != prevOver) rects = captureThumbRects(container)
         current = current.copy(over = over, pointerX = x, pointerY = y, originX = originX, originY = originY)
         drag = current
         ghost?.let { writeGhost(it, current) }
-        if (over != prevOver) setDrag(current)
+        if (over != prevOver) applyThumbShifts(container, pressFrom, over, slots)
     }
 
     private fun recaptureOrigin(el: HTMLElement) {
@@ -889,14 +891,24 @@ private class PhotoThumbSession {
         drag = null
         originX = 0.0
         originY = 0.0
-        clearThumbMotion(container)
-        setDrag(null)
-        if (!didDrag || current == null) return
-        if (current.from != current.over) onUrls(movedPhotoUrls(urls, current.from, current.over))
+        if (!didDrag || current == null) {
+            slots = emptyList()
+            clearThumbMotion(container)
+            setDrag(null)
+            return
+        }
+        if (current.from != current.over) {
+            val moved = movedPhotoUrls(urls, current.from, current.over)
+            settleUrls = moved
+            setDrag(null)
+            onUrls(moved)
+        } else {
+            slots = emptyList()
+            clearThumbMotion(container)
+            setDrag(null)
+        }
     }
 }
-
-private fun indexForUrl(urls: List<String>, url: String): Int = urls.indexOf(url)
 
 internal fun movedPhotoUrls(urls: List<String>, from: Int, to: Int): List<String> {
     if (from == to || from !in urls.indices || to !in urls.indices) return urls
@@ -952,54 +964,32 @@ internal fun dropThumbIndex(
     return best
 }
 
-private fun pointerThumbIndex(container: HTMLElement, x: Double, y: Double, current: Int): Int {
+private fun captureThumbSlots(container: HTMLElement?): List<PhotoThumbBox> {
+    if (container == null) return emptyList()
     val nodes = container.querySelectorAll(".photo-thumb")
     val boxes = ArrayList<PhotoThumbBox>(nodes.length)
     for (i in 0 until nodes.length) {
         val el = nodes.item(i) as? HTMLElement ?: continue
         boxes += layoutBox(el)
     }
-    return dropThumbIndex(boxes, x, y, current)
+    return boxes
 }
 
-private fun captureThumbRects(container: HTMLElement?): Map<String, Pair<Double, Double>> {
-    if (container == null) return emptyMap()
+private fun applyThumbShifts(
+    container: HTMLElement?,
+    from: Int,
+    over: Int,
+    slots: List<PhotoThumbBox>,
+) {
+    if (container == null || slots.isEmpty()) return
+    val positions = slots.map { it.left to it.top }
     val nodes = container.querySelectorAll(".photo-thumb")
-    val next = mutableMapOf<String, Pair<Double, Double>>()
     for (i in 0 until nodes.length) {
         val el = nodes.item(i) as? HTMLElement ?: continue
-        val key = el.getAttribute("data-thumb") ?: continue
-        next[key] = layoutPos(el)
-    }
-    return next
-}
-
-private fun animateThumbRects(
-    container: HTMLElement,
-    previous: Map<String, Pair<Double, Double>>,
-): Map<String, Pair<Double, Double>> {
-    val nodes = container.querySelectorAll(".photo-thumb")
-    val next = mutableMapOf<String, Pair<Double, Double>>()
-    for (i in 0 until nodes.length) {
-        val el = nodes.item(i) as? HTMLElement ?: continue
-        val key = el.getAttribute("data-thumb") ?: continue
-        val pos = layoutPos(el)
-        next[key] = pos
-        val last = previous[key] ?: continue
-        val dx = last.first - pos.first
-        val dy = last.second - pos.second
-        if (abs(dx) < 1 && abs(dy) < 1) {
-            el.style.removeProperty("transition")
-            el.style.removeProperty("transform")
-            continue
-        }
-        el.style.setProperty("transition", "none")
-        el.style.setProperty("transform", "translate(${dx}px, ${dy}px)")
-        el.offsetWidth
+        val (dx, dy) = photoThumbShift(from, over, i, positions)
         el.style.setProperty("transition", "transform 200ms ease")
-        el.style.setProperty("transform", "translate(0, 0)")
+        el.style.setProperty("transform", "translate(${dx}px, ${dy}px)")
     }
-    return next
 }
 
 private fun clearThumbMotion(container: HTMLElement?) {
@@ -1010,11 +1000,6 @@ private fun clearThumbMotion(container: HTMLElement?) {
         el.style.removeProperty("transition")
         el.style.removeProperty("transform")
     }
-}
-
-private fun layoutPos(el: HTMLElement): Pair<Double, Double> {
-    val box = layoutBox(el)
-    return box.left to box.top
 }
 
 private fun layoutBox(el: HTMLElement): PhotoThumbBox {
