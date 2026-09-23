@@ -115,6 +115,12 @@ fun Route.api(app: AppContext) {
         call.respond(OkDto())
     }
 
+    post("/api/visits") {
+        val user = call.currentUser(app)
+        runCatching { db.recordVisit(isUser = user != null, now = app.now()) }
+        call.respond(OkDto())
+    }
+
     sse("/api/events") {
         val user = call.currentUser(app) ?: return@sse
         app.hub.register(user.key, this)
@@ -740,6 +746,10 @@ fun Route.api(app: AppContext) {
         get("/stats") {
             call.requireAdmin(app)
             call.respond(db.adminStats(app.now()))
+        }
+        get("/visits") {
+            call.requireAdmin(app)
+            call.respond(db.visitStats(app.now()))
         }
         get("/activity") {
             call.requireAdmin(app)

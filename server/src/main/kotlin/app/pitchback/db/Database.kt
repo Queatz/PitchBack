@@ -4,6 +4,8 @@ import app.pitchback.api.AdminEventDto
 import app.pitchback.api.AdminEventsResponse
 import app.pitchback.api.AdminPendingDto
 import app.pitchback.api.AdminStatsDto
+import app.pitchback.api.AdminVisitsResponse
+import app.pitchback.api.VisitDayDto
 import app.pitchback.api.LocationDto
 import app.pitchback.api.LocationRecDto
 import app.pitchback.api.MeetDto
@@ -14,6 +16,9 @@ import app.pitchback.api.PitchCardDto
 import app.pitchback.api.TopicDto
 import app.pitchback.api.UserAdminDto
 import app.pitchback.api.VerificationDto
+import app.pitchback.domain.VISIT_DAY_MS
+import app.pitchback.domain.VISIT_DAYS
+import app.pitchback.domain.fillVisitDays
 import app.pitchback.domain.meetEndedBy
 import app.pitchback.domain.nextOfferedSlots
 import app.pitchback.domain.normalizeAvailability
@@ -91,6 +96,40 @@ class Database(val arango: Arango) {
                 mapOf("s" to v(STATUS_ACTIVE)),
             ) ?: 0,
         )
+    }
+
+    suspend fun recordVisit(isUser: Boolean, now: Long) {
+        val dayStart = IctPeriods.startOfDay(now)
+        arango.query(
+            """
+            UPSERT { _key: @key }
+            INSERT { _key: @key, dayStart: @dayStart, users: @users, guests: @guests }
+            UPDATE {
+              users: NOT_NULL(OLD.users, 0) + @users,
+              guests: NOT_NULL(OLD.guests, 0) + @guests
+            } IN visits
+            """.trimIndent(),
+            mapOf(
+                "key" to v(dayStart.toString()),
+                "dayStart" to v(dayStart),
+                "users" to v(if (isUser) 1 else 0),
+                "guests" to v(if (isUser) 0 else 1),
+            ),
+        )
+    }
+
+    suspend fun visitStats(now: Long): AdminVisitsResponse {
+        val today = IctPeriods.startOfDay(now)
+        val from = today - (VISIT_DAYS - 1) * VISIT_DAY_MS
+        val records: List<VisitDayDto> = arango.queryList(
+            """
+            FOR d IN visits
+              FILTER d.dayStart >= @from AND d.dayStart <= @today
+              RETURN { dayStart: d.dayStart, users: d.users, guests: d.guests }
+            """.trimIndent(),
+            mapOf("from" to v(from), "today" to v(today)),
+        )
+        return AdminVisitsResponse(fillVisitDays(today, records))
     }
 
     private suspend fun countActiveUsers(since: Long): Int =

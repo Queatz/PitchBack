@@ -45,6 +45,18 @@ data class AdminStatsDto(
 )
 
 @Serializable
+data class VisitDayDto(
+    val dayStart: Long,
+    val users: Int = 0,
+    val guests: Int = 0,
+)
+
+@Serializable
+data class AdminVisitsResponse(
+    val days: List<VisitDayDto> = emptyList(),
+)
+
+@Serializable
 data class AdminEventDto(
     val id: String,
     val type: String,

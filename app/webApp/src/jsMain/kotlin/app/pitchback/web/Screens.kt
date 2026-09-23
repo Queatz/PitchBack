@@ -11,6 +11,7 @@ import androidx.compose.runtime.setValue
 import app.pitchback.api.AdminEventDto
 import app.pitchback.api.AdminPendingDto
 import app.pitchback.api.AdminStatsDto
+import app.pitchback.api.AdminVisitsResponse
 import app.pitchback.api.CreatePitchRequest
 import app.pitchback.api.InboxDto
 import app.pitchback.api.LocationDto
@@ -836,6 +837,7 @@ fun AdminScreen(t: T, user: PublicUser?, lang: AppLang) {
     var editing by remember { mutableStateOf<LocationDto?>(null) }
     var noShows by remember { mutableStateOf(listOf<NoShowDto>()) }
     var stats by remember { mutableStateOf<AdminStatsDto?>(null) }
+    var visits by remember { mutableStateOf<AdminVisitsResponse?>(null) }
     var events by remember { mutableStateOf(listOf<AdminEventDto>()) }
     var eventsLoading by remember { mutableStateOf(false) }
     var eventsDone by remember { mutableStateOf(false) }
@@ -865,6 +867,7 @@ fun AdminScreen(t: T, user: PublicUser?, lang: AppLang) {
             runCatching { recs = Api.locationRecs() }
             runCatching { noShows = Api.noShows() }
             runCatching { stats = Api.adminStats() }
+            runCatching { visits = Api.adminVisits() }
         }
     }
     LaunchedEffect(Unit) {
@@ -909,7 +912,7 @@ fun AdminScreen(t: T, user: PublicUser?, lang: AppLang) {
             }
         }
         when (tab) {
-            "home" -> AdminHomeTab(t, stats, events, eventsLoading) { profileUser = it }
+            "home" -> AdminHomeTab(t, stats, visits, events, eventsLoading) { profileUser = it }
             "pitches" -> pitches.forEach { p ->
                 Div({ classes("card") }) {
                     PhotoScroller(p.photoUrls)
@@ -1013,6 +1016,7 @@ fun AdminScreen(t: T, user: PublicUser?, lang: AppLang) {
 private fun AdminHomeTab(
     t: T,
     stats: AdminStatsDto?,
+    visits: AdminVisitsResponse?,
     events: List<AdminEventDto>,
     loading: Boolean,
     onProfile: (PublicUser) -> Unit,
@@ -1042,6 +1046,7 @@ private fun AdminHomeTab(
             AdminStatCard(t.activeMeets, s.activeMeets)
         }
     }
+    visits?.let { VisitsChart(t, it.days) }
     Div({ classes("section-title") }) { Text(t.activity) }
     if (events.isEmpty() && !loading) Div({ classes("empty") }) { Text(t.emptyActivity) }
     events.forEach { event ->

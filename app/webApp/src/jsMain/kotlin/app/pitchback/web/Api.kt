@@ -4,6 +4,7 @@ import app.pitchback.AppJson
 import app.pitchback.api.AdminEventsResponse
 import app.pitchback.api.AdminPendingDto
 import app.pitchback.api.AdminStatsDto
+import app.pitchback.api.AdminVisitsResponse
 import app.pitchback.api.AiStreamRequest
 import app.pitchback.api.CreatePitchRequest
 import app.pitchback.api.EndMeetRequest
@@ -94,6 +95,10 @@ object Api {
         AppJson.decodeFromString(request(path))
 
     suspend fun health() = request("/api/health")
+
+    suspend fun recordVisit() {
+        request("/api/visits", "POST", "{}")
+    }
 
     suspend fun register(body: RegisterRequest): MeDto =
         AppJson.decodeFromString(request("/api/auth/register", "POST", AppJson.encodeToString(body)))
@@ -210,6 +215,7 @@ object Api {
 
     suspend fun adminPending(): AdminPendingDto = get("/api/admin/pending")
     suspend fun adminStats(): AdminStatsDto = get("/api/admin/stats")
+    suspend fun adminVisits(): AdminVisitsResponse = get("/api/admin/visits")
     suspend fun adminActivity(before: Long? = null): AdminEventsResponse {
         val q = if (before != null) "?before=$before" else ""
         return get("/api/admin/activity$q")

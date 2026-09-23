@@ -151,6 +151,7 @@ fun App() {
 
     LaunchedEffect(Unit) {
         refreshMe()
+        runCatching { Api.recordVisit() }
     }
 
     DisposableEffect(user?.id) {
