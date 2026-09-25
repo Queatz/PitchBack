@@ -41,6 +41,7 @@ class T(val lang: AppLang) {
     val cancel get() = s("Cancel", "Hủy")
     val save get() = s("Save", "Lưu")
     val signIn get() = s("Sign in", "Đăng nhập")
+    val signUp get() = s("Sign up", "Đăng ký")
     val signOut get() = s("Sign out", "Đăng xuất")
     val confirmSignOut
         get() = s(

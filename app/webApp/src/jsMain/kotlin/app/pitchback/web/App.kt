@@ -174,7 +174,7 @@ fun App() {
     Div({ classes("app-shell") }) {
         Div({ classes("desktop-nav") }) {
             Div({ classes("brand") }) { Text("✦ ${t.appName}") }
-            NavButtons(t, screen, inbox.badge, desktop = true)
+            NavButtons(t, screen, inbox.badge, user != null, desktop = true)
         }
         Div({ classes("main") }) {
             when (val s = screen) {
@@ -192,7 +192,7 @@ fun App() {
             }
         }
         Div({ classes("bottom-nav") }) {
-            NavButtons(t, screen, inbox.badge, desktop = false)
+            NavButtons(t, screen, inbox.badge, user != null, desktop = false)
         }
         NoticeDialog(t)
         ConfirmDialog(t)
@@ -200,10 +200,16 @@ fun App() {
 }
 
 @Composable
-private fun NavButtons(t: T, screen: Screen, badge: Int, desktop: Boolean) {
+private fun NavButtons(t: T, screen: Screen, badge: Int, loggedIn: Boolean, desktop: Boolean) {
     NavItem(t.inbox, screen is Screen.Inbox, desktop, badge, true) { go(Screen.Inbox) }
     NavItem(t.pitches, screen is Screen.Feed || screen is Screen.Pitch, desktop, badge, false) { go(Screen.Feed) }
-    NavItem(t.me, screen is Screen.Me || screen is Screen.Admin || screen is Screen.Places, desktop, badge, false) { go(Screen.Me) }
+    NavItem(
+        if (loggedIn) t.me else t.signUp,
+        screen is Screen.Me || screen is Screen.Admin || screen is Screen.Places,
+        desktop,
+        badge,
+        false,
+    ) { go(Screen.Me) }
 }
 
 @Composable

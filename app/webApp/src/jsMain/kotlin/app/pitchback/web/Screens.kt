@@ -410,7 +410,7 @@ fun MeScreen(
 
 @Composable
 private fun AuthPanel(t: T, applyMe: (MeDto) -> Unit) {
-    var register by remember { mutableStateOf(false) }
+    var register by remember { mutableStateOf(true) }
     var name by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
