@@ -174,6 +174,7 @@ fun App() {
     Div({ classes("app-shell") }) {
         Div({ classes("desktop-nav") }) {
             Div({ classes("brand") }) { Text("✦ ${t.appName}") }
+            Div({ classes("slogan") }) { Text(t.slogan) }
             NavButtons(t, screen, inbox.badge, user != null, desktop = true)
         }
         Div({ classes("main") }) {
@@ -202,7 +203,7 @@ fun App() {
 @Composable
 private fun NavButtons(t: T, screen: Screen, badge: Int, loggedIn: Boolean, desktop: Boolean) {
     NavItem(t.inbox, screen is Screen.Inbox, desktop, badge, true) { go(Screen.Inbox) }
-    NavItem(t.pitches, screen is Screen.Feed || screen is Screen.Pitch, desktop, badge, false) { go(Screen.Feed) }
+    NavItem(t.pitchBack, screen is Screen.Feed || screen is Screen.Pitch, desktop, badge, false) { go(Screen.Feed) }
     NavItem(
         if (loggedIn) t.me else t.signUp,
         screen is Screen.Me || screen is Screen.Admin || screen is Screen.Places,

@@ -8,6 +8,7 @@ class T(val lang: AppLang) {
     private fun s(en: String, vi: String) = if (lang == AppLang.VI) vi else en
 
     val appName get() = "ranh.app"
+    val slogan get() = s("Nurture your mind", "Nuôi dưỡng tâm trí của bạn")
     val pitches get() = s("Pitches", "Lời ngỏ")
     val inbox get() = s("Inbox", "Hộp thư")
     val me get() = s("Me", "Tôi")

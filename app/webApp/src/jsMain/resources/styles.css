@@ -972,6 +972,10 @@ html[data-theme="light"] .chip-topic { background: #efe8ff; color: #5b3bb8; }
   .desktop-nav .brand {
     font-weight: 800;
     font-size: 1.2rem;
+  }
+  .desktop-nav .slogan {
+    font-size: 0.85rem;
+    opacity: .5;
     margin-bottom: 18px;
   }
   .desktop-nav .nav-item {
