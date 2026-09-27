@@ -95,7 +95,10 @@ fun FeedScreen(t: T, user: PublicUser?, remainingSlots: Int, tick: Int) {
         }
     }) {
         Div({ classes("topbar") }) {
-            H1 { Text(t.pitches); Span({ classes("spark") }) { Text("✦") } }
+            Div {
+                H1 { Text(t.appName); Span({ classes("spark") }) { Text("✦") } }
+                Div({ classes("slogan") }) { Text(t.slogan) }
+            }
             if (user != null) Div({ classes("flame") }) { Text("🔥 "); Span { Text("$remainingSlots") } }
         }
         if (user == null && !welcomeDismissed) {

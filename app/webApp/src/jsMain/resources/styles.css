@@ -121,6 +121,12 @@ img { max-width: 100%; display: block; }
   gap: 8px;
 }
 .spark { color: var(--lime); font-size: 1.1rem; }
+.topbar .slogan {
+  font-size: 0.85rem;
+  opacity: .5;
+  font-weight: 600;
+  margin-top: 2px;
+}
 .icon-btn {
   width: 42px;
   height: 42px;
