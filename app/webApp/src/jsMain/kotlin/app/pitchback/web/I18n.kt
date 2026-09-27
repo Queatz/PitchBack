@@ -23,7 +23,7 @@ class T(val lang: AppLang) {
     val today get() = s("Today", "Hôm nay")
     val thisWeek get() = s("This week", "Tuần này")
     val thisMonth get() = s("This month", "Tháng này")
-    val pitchBack get() = s("Pitch back", "Ngỏ lời")
+    val pitchBack get() = s("Pitch back", "Ngỏ lời lại")
     val thePitch get() = s("The pitch", "Lời ngỏ")
     val theLocation get() = s("The location", "Địa điểm")
     val profileUpdated get() = s("Profile updated", "Đã cập nhật hồ sơ")

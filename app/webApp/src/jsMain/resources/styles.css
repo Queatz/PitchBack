@@ -127,6 +127,7 @@ img { max-width: 100%; display: block; }
   font-weight: 600;
   margin-top: 2px;
 }
+.topbar .feed-title { display: none; }
 .icon-btn {
   width: 42px;
   height: 42px;
@@ -983,6 +984,7 @@ html[data-theme="light"] .chip-topic { background: #efe8ff; color: #5b3bb8; }
     font-size: 0.85rem;
     opacity: .5;
     margin-bottom: 18px;
+    font-weight: 600;
   }
   .desktop-nav .nav-item {
     display: flex;
@@ -997,6 +999,8 @@ html[data-theme="light"] .chip-topic { background: #efe8ff; color: #5b3bb8; }
     transform: none;
   }
   .bottom-nav { display: none; }
+  .topbar .feed-brand { display: none; }
+  .topbar .feed-title { display: flex; }
   .main {
     width: min(100%, 1080px);
     padding: 24px 28px 40px;
