@@ -340,7 +340,11 @@ fun InboxScreen(t: T, user: PublicUser?, inbox: InboxDto, lang: AppLang, refresh
                         P({ classes("muted") }) { Text("📍 ${t.meetAt} ${pb.locationName}") }
                     }
                     MeetSlotLine(t, pb.slotAt)
-                    GhostButton(t.cancelPitchBack) { scope.launch { runCatching { Api.cancelPitchBack(pb.id) }; refresh() } }
+                    GhostButton(t.cancelPitchBack) {
+                        showConfirm(t.cancelPitchBack, t.confirmCancelPitchBack, t.cancelPitchBack) {
+                            scope.launch { runCatching { Api.cancelPitchBack(pb.id) }; refresh() }
+                        }
+                    }
                 }
             }
         }

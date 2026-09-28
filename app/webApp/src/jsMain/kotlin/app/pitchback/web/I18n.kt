@@ -183,6 +183,11 @@ class T(val lang: AppLang) {
     val guestMe get() = s("Create an account to pitch and pitch back.", "Tạo tài khoản để đăng lời ngỏ và ngỏ lời.")
     val profilePhoto get() = s("Profile photo", "Ảnh đại diện")
     val cancelPitchBack get() = s("Cancel pitch back", "Hủy ngỏ lời")
+    val confirmCancelPitchBack
+        get() = s(
+            "Cancel this pitch back?",
+            "Hủy ngỏ lời lại này?",
+        )
     val close get() = s("Close", "Đóng")
     val open get() = s("Open", "Mở")
     val pickLocation get() = s("Pick a location", "Chọn địa điểm")

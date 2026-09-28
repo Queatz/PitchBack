@@ -864,7 +864,7 @@ html[data-theme="light"] .chip-topic { background: #efe8ff; color: #5b3bb8; }
 .photo-scroller.clickable { cursor: pointer; }
 .grid-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
 .muted { color: var(--muted); }
-.status-active { color: var(--green); }
+.status-active { color: var(--green); font-weight: 500; }
 .back-row { display: flex; align-items: center; gap: 8px; }
 .error { color: var(--danger); font-size: 0.86rem; }
 .day-toggles {
