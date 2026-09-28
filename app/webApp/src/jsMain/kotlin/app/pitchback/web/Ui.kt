@@ -47,6 +47,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.jetbrains.compose.web.attributes.ButtonType
 import org.jetbrains.compose.web.attributes.InputType
+import org.jetbrains.compose.web.attributes.disabled
 import org.jetbrains.compose.web.attributes.multiple
 import org.jetbrains.compose.web.attributes.placeholder
 import org.jetbrains.compose.web.attributes.type
@@ -78,12 +79,13 @@ import org.w3c.files.get
 import kotlin.coroutines.resume
 
 @Composable
-fun GradButton(label: String, flash: Boolean = false, onClick: () -> Unit) {
+fun GradButton(label: String, flash: Boolean = false, enabled: Boolean = true, onClick: () -> Unit) {
     Button({
         classes("btn", "btn-grad")
         if (flash) classes("flash")
         type(ButtonType.Button)
-        onClick { onClick() }
+        if (!enabled) disabled()
+        onClick { if (enabled) onClick() }
     }) { Text(label) }
 }
 
@@ -463,6 +465,7 @@ fun PhotoPicker(
     label: String = t.photos,
     multiple: Boolean = true,
     maxPixelSize: Int? = 1200,
+    onUploading: (Boolean) -> Unit = {},
     onUrls: (List<String>) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -479,6 +482,7 @@ fun PhotoPicker(
         }
         if (items.isEmpty()) return
         uploading = true
+        onUploading(true)
         uploadCurrent = 1
         uploadTotal = items.size
         uploadFraction = 0.0
@@ -504,6 +508,7 @@ fun PhotoPicker(
                 }
             } finally {
                 uploading = false
+                onUploading(false)
                 uploadFraction = 0.0
             }
         }

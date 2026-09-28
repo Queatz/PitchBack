@@ -82,6 +82,25 @@ class RulesTest {
     }
 
     @Test
+    fun pitchBackSentNoticeLastsADayAndIgnoresDismiss() {
+        val created = 1_000L
+        val now = created + 12L * 60L * 60L * 1000L
+        val pending = pitchBackSentNotice(created, STATUS_PENDING, now)
+        assertEquals(created, pending?.sentAt)
+        assertFalse(pending?.accepted == true)
+        val passed = pitchBackSentNotice(created, STATUS_PASSED, now)
+        assertEquals(created, passed?.sentAt)
+        assertFalse(passed?.accepted == true)
+        val accepted = pitchBackSentNotice(created, STATUS_ACCEPTED, now)
+        assertEquals(created, accepted?.sentAt)
+        assertTrue(accepted?.accepted == true)
+        assertNull(pitchBackSentNotice(created, STATUS_CANCELLED, now))
+        assertNull(pitchBackSentNotice(created, STATUS_PENDING, created + PITCH_BACK_TTL_MS))
+        assertNull(pitchBackSentNotice(created, STATUS_ACCEPTED, created + PITCH_BACK_TTL_MS))
+        assertEquals(created, pitchBackSentNotice(created, STATUS_PENDING, created + PITCH_BACK_TTL_MS - 1)?.sentAt)
+    }
+
+    @Test
     fun pitchBackExpiryAndAccept() {
         val created = 1_000L
         val expires = pitchBackExpiresAt(created)

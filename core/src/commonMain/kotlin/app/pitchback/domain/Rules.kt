@@ -99,6 +99,17 @@ fun pitchBackExpiresAt(createdAt: Long): Long = createdAt + PITCH_BACK_TTL_MS
 fun isPitchBackExpired(status: String, expiresAt: Long, now: Long): Boolean =
     status == STATUS_PENDING && now >= expiresAt
 
+data class PitchBackSentNotice(
+    val sentAt: Long,
+    val accepted: Boolean,
+)
+
+fun pitchBackSentNotice(createdAt: Long, status: String, now: Long): PitchBackSentNotice? {
+    if (status == STATUS_CANCELLED) return null
+    if (now < createdAt || now - createdAt >= PITCH_BACK_TTL_MS) return null
+    return PitchBackSentNotice(sentAt = createdAt, accepted = status == STATUS_ACCEPTED)
+}
+
 fun canAcceptPitchBack(
     pitchBackStatus: String,
     expiresAt: Long,

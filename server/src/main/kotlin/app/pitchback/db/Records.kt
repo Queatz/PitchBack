@@ -132,6 +132,7 @@ data class LocationRecRecord(
     val name: String,
     val description: String = "",
     val address: String = "",
+    val photoUrls: List<String> = emptyList(),
     val status: String,
     val createdAt: Long,
 )

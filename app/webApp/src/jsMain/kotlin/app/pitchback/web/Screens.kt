@@ -34,8 +34,11 @@ import app.pitchback.api.WeeklyAvailability
 import app.pitchback.domain.OfferedSlot
 import app.pitchback.domain.PITCH_BACK_TEXT_MIN
 import app.pitchback.domain.PITCH_TEXT_MIN
+import app.pitchback.domain.STATUS_ACCEPTED
+import app.pitchback.domain.STATUS_PENDING
 import app.pitchback.domain.meetTimeHasStarted
 import app.pitchback.domain.nextOfferedSlots
+import app.pitchback.domain.pitchBackSentNotice
 import app.pitchback.domain.validateAvailability
 import kotlin.js.Date
 import kotlinx.browser.document
@@ -105,6 +108,7 @@ fun FeedScreen(t: T, user: PublicUser?, remainingSlots: Int, tick: Int) {
         if (user == null && !welcomeDismissed) {
             Div({ classes("welcome-banner") }) {
                 P { Text(t.welcomeInbox) }
+                Spacer()
                 GhostButton(t.dismiss) {
                     inboxWelcomeDismissed = true
                     welcomeDismissed = true
@@ -124,7 +128,7 @@ fun FeedScreen(t: T, user: PublicUser?, remainingSlots: Int, tick: Int) {
 }
 
 @Composable
-fun PitchScreen(t: T, id: String, user: PublicUser?, lang: AppLang) {
+fun PitchScreen(t: T, id: String, user: PublicUser?, lang: AppLang, tick: Int = 0) {
     var card by remember { mutableStateOf<PitchCardDto?>(null) }
     var text by remember { mutableStateOf("") }
     var selectedAt by remember { mutableStateOf<Long?>(null) }
@@ -132,7 +136,7 @@ fun PitchScreen(t: T, id: String, user: PublicUser?, lang: AppLang) {
     var profileUser by remember { mutableStateOf<PublicUser?>(null) }
     var shareOpen by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    LaunchedEffect(id) {
+    LaunchedEffect(id, tick) {
         try {
             card = Api.pitch(id)
         } catch (e: Throwable) {
@@ -140,6 +144,9 @@ fun PitchScreen(t: T, id: String, user: PublicUser?, lang: AppLang) {
         }
     }
     val c = card
+    val notice = c?.myPitchBackAt?.let { at ->
+        pitchBackSentNotice(at, if (c.myPitchBackAccepted) STATUS_ACCEPTED else STATUS_PENDING, Date.now().toLong())
+    }
     Div {
         Div({ classes("topbar") }) {
             Button({ classes("icon-btn"); type(ButtonType.Button); onClick { go(Screen.Feed) } }) { Text("←") }
@@ -149,6 +156,16 @@ fun PitchScreen(t: T, id: String, user: PublicUser?, lang: AppLang) {
         if (c == null) {
             Div({ classes("empty") }) { Text(t.loading) }
         } else {
+            if (notice != null) {
+                Div({ classes("welcome-banner") }) {
+                    P {
+                        Text(
+                            if (notice.accepted) t.pitchBackAcceptedNotice(c.author.name)
+                            else t.pitchedBackAgo(c.author.name, t.timeAgo(notice.sentAt, Date.now().toLong())),
+                        )
+                    }
+                }
+            }
             PhotoScroller(c.photoUrls)
             Div({ classes("card-body") }) {
                 Div({ classes("person-row") }) {
@@ -290,7 +307,9 @@ fun InboxScreen(t: T, user: PublicUser?, inbox: InboxDto, lang: AppLang, refresh
                     PersonDetails(pb.fromUser) { profileUser = pb.fromUser }
                     P({ classes("preview") }) { Text("“${pb.pitchPreview}”") }
                     P({ classes("response") }) { Text(pb.text) }
-                    P({ classes("muted") }) { Text("📍 ${t.meetAt} ${pb.locationName}") }
+                    if (pb.locationName.isNotBlank()) {
+                        P({ classes("muted") }) { Text("📍 ${t.meetAt} ${pb.locationName}") }
+                    }
                     MeetSlotLine(t, pb.slotAt)
                     Div({ classes("row-btns") }) {
                         GradButton(t.acceptPitch) {
@@ -313,6 +332,9 @@ fun InboxScreen(t: T, user: PublicUser?, inbox: InboxDto, lang: AppLang, refresh
                 Div({ classes("inbox-card") }) {
                     PersonDetails(pb.toUser) { profileUser = pb.toUser }
                     P { Text(pb.text) }
+                    if (pb.locationName.isNotBlank()) {
+                        P({ classes("muted") }) { Text("📍 ${t.meetAt} ${pb.locationName}") }
+                    }
                     MeetSlotLine(t, pb.slotAt)
                     GhostButton(t.cancelPitchBack) { scope.launch { runCatching { Api.cancelPitchBack(pb.id) }; refresh() } }
                 }
@@ -636,7 +658,7 @@ private fun ProfilePanel(
             }
         }
         Spacer()
-        GhostButton(t.recs) { go(Screen.Places) }
+        GhostButton(t.placeIdeas) { go(Screen.Places) }
         Spacer()
         GhostButton(t.signOut) {
             showConfirm(t.signOut, t.confirmSignOut, t.signOut) {
@@ -780,17 +802,16 @@ fun PlacesScreen(t: T, user: PublicUser?, lang: AppLang) {
     var name by remember { mutableStateOf("") }
     var address by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
+    var photos by remember { mutableStateOf(listOf<String>()) }
+    var uploading by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { runCatching { locations = Api.locations() } }
     Div {
         Div({ classes("topbar") }) {
             Button({ classes("icon-btn"); type(ButtonType.Button); onClick { go(Screen.Me) } }) { Text("←") }
-            H1 { Text(t.recs) }
+            H1 { Text(t.placeIdeas) }
             Span {}
         }
         P({ classes("muted") }) { Text(t.placeForumIntro) }
-        locations.forEach { loc ->
-            LocationBlock(t, loc)
-        }
         Div({ classes("section-title") }) { Text(t.recommendPlace) }
         if (user == null) {
             GradButton(t.signIn) { go(Screen.Me) }
@@ -804,23 +825,30 @@ fun PlacesScreen(t: T, user: PublicUser?, lang: AppLang) {
             }
             }
             AiField(t, t.note, note, { note = it }, "location", t.note, null, lang)
-            GradButton(t.submitPlace) {
+            PhotoPicker(t, photos, onUploading = { uploading = it }) { photos = it }
+            GradButton(t.submitPlace, enabled = !uploading) {
+                if (uploading) return@GradButton
                 scope.launch {
                     try {
                         Api.recommendLocation(
                             RecommendLocationRequest(
                                 name = name,
                                 description = note,
-                                address = address
+                                address = address,
+                                photoUrls = photos,
                             )
                         )
-                        name = ""; address = ""; note = ""
+                        name = ""; address = ""; note = ""; photos = emptyList()
                         showNotice(t.placeSubmitted)
                     } catch (e: Throwable) {
                         showNotice(e.message)
                     }
                 }
             }
+        }
+        Spacer()
+        locations.forEach { loc ->
+            LocationBlock(t, loc)
         }
     }
 }
@@ -906,7 +934,7 @@ fun AdminScreen(t: T, user: PublicUser?, lang: AppLang) {
                 "noshow" to t.noShows,
                 "users" to t.users,
                 "places" to t.locations,
-                "recs" to t.recs
+                "recs" to t.placeIdeas
             ).forEach { (id, label) ->
                 Button({
                     if (tab == id) classes("on")
@@ -1005,6 +1033,7 @@ fun AdminScreen(t: T, user: PublicUser?, lang: AppLang) {
 
             "recs" -> recs.forEach { r ->
                 Div({ classes("inbox-card") }) {
+                    PhotoScroller(r.photoUrls)
                     H3 { Text(r.name) }
                     P { Text(r.description) }
                     P({ classes("muted") }) { Text(r.user.name) }

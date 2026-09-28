@@ -167,7 +167,7 @@ class T(val lang: AppLang) {
     val disable get() = s("Disable", "Khóa")
     val enable get() = s("Enable", "Mở khóa")
     val locations get() = s("Locations", "Địa điểm")
-    val recs get() = s("Place ideas", "Gợi ý quán")
+    val placeIdeas get() = s("Place ideas", "Gợi ý quán")
     val placeForumIntro
         get() = s(
             "A quiet board for places worth meeting in. Suggest a café, park, or corner; an admin reviews it before it appears when people write a pitch.",
@@ -279,6 +279,27 @@ class T(val lang: AppLang) {
         "You pitched back $name! Check your inbox for updates.",
         "Bạn đã ngỏ lời với $name! Kiểm tra hộp thư để theo dõi.",
     )
+
+    fun pitchedBackAgo(name: String, ago: String): String = s(
+        "You pitched $name back $ago",
+        "Bạn đã ngỏ lời lại với $name $ago",
+    )
+
+    fun pitchBackAcceptedNotice(name: String): String = s(
+        "$name accepted your pitch back! Check your inbox.",
+        "$name đã chấp nhận lời ngỏ lại của bạn! Kiểm tra hộp thư.",
+    )
+
+    fun timeAgo(from: Long, now: Long): String {
+        val minutes = ((now - from).coerceAtLeast(0) / 60_000L).toInt()
+        val hours = minutes / 60
+        return when {
+            minutes < 1 -> s("just now", "vừa xong")
+            hours < 1 -> if (minutes == 1) s("1 minute ago", "1 phút trước") else s("$minutes minutes ago", "$minutes phút trước")
+            hours == 1 -> s("1 hour ago", "1 giờ trước")
+            else -> s("$hours hours ago", "$hours giờ trước")
+        }
+    }
 
     fun canceledBy(name: String): String = s("Canceled by $name", "Đã hủy bởi $name")
 

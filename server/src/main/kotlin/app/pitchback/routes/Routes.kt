@@ -287,6 +287,9 @@ fun Route.api(app: AppContext) {
         val user = call.requireUser(app)
         val body = call.receive<RecommendLocationRequest>()
         if (body.name.trim().length < 2) throw ApiException.bad("NAME", "PLACE_NAME")
+        if (body.photoUrls.isNotEmpty()) {
+            validatePhotos(body.photoUrls)?.let { throw ApiException.bad(it, it) }
+        }
         val rec = db.insertLocationRec(
             LocationRecRecord(
                 key = UUID.randomUUID().toString(),
@@ -294,6 +297,7 @@ fun Route.api(app: AppContext) {
                 name = body.name.trim(),
                 description = body.description.trim(),
                 address = body.address.trim(),
+                photoUrls = body.photoUrls,
                 status = STATUS_PENDING,
                 createdAt = app.now(),
             ),

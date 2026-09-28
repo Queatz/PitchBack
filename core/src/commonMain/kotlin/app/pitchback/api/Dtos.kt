@@ -146,6 +146,8 @@ data class PitchCardDto(
     val isOwner: Boolean = false,
     val availability: WeeklyAvailability = WeeklyAvailability(),
     val nextSlots: List<OfferedSlotDto> = emptyList(),
+    val myPitchBackAt: Long? = null,
+    val myPitchBackAccepted: Boolean = false,
 )
 
 @Serializable
@@ -221,6 +223,7 @@ data class RecommendLocationRequest(
     val name: String,
     val description: String = "",
     val address: String = "",
+    val photoUrls: List<String> = emptyList(),
 )
 
 @Serializable
@@ -326,6 +329,7 @@ data class LocationRecDto(
     val name: String,
     val description: String = "",
     val address: String = "",
+    val photoUrls: List<String> = emptyList(),
     val status: String,
     val createdAt: Long,
 )

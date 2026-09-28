@@ -180,7 +180,7 @@ fun App() {
         Div({ classes("main") }) {
             when (val s = screen) {
                 Screen.Feed -> FeedScreen(t, user, remainingSlots, feedTick)
-                is Screen.Pitch -> PitchScreen(t, s.id, user, lang)
+                is Screen.Pitch -> PitchScreen(t, s.id, user, lang, feedTick)
                 Screen.Inbox -> InboxScreen(t, user, inbox, lang) { refreshInbox() }
                 Screen.Me -> MeScreen(t, user, remainingSlots, adminPending, verificationPending, lang, langOverride, ::applyMe) {
                     user = null

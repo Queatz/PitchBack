@@ -23,6 +23,7 @@ import app.pitchback.domain.meetEndedBy
 import app.pitchback.domain.nextOfferedSlots
 import app.pitchback.domain.normalizeAvailability
 import app.pitchback.domain.otherFinalMessage
+import app.pitchback.domain.pitchBackSentNotice
 import app.pitchback.domain.STATUS_ACTIVE
 import app.pitchback.domain.STATUS_APPROVED
 import app.pitchback.domain.STATUS_PENDING
@@ -284,6 +285,18 @@ class Database(val arango: Arango) {
             mapOf("pitchId" to v(pitchId), "from" to v(fromUserId), "status" to v(STATUS_PENDING)),
         )
 
+    suspend fun latestPitchBackFromUser(pitchId: String, fromUserId: String): PitchBackRecord? =
+        arango.queryOne(
+            """
+            FOR p IN pitchBacks
+              FILTER p.pitchId == @pitchId AND p.fromUserId == @from
+              SORT p.createdAt DESC
+              LIMIT 1
+              RETURN p
+            """.trimIndent(),
+            mapOf("pitchId" to v(pitchId), "from" to v(fromUserId)),
+        )
+
     suspend fun incomingPitchBacks(userId: String): List<PitchBackRecord> =
         arango.queryList(
             """
@@ -453,6 +466,11 @@ class Database(val arango: Arango) {
         }
         val availability = normalizeAvailability(pitch.availability)
         val taken = takenSlotAtsForUser(pitch.authorId, now)
+        val notice = if (viewerId != null && viewerId != pitch.authorId) {
+            latestPitchBackFromUser(pitch.key, viewerId)?.let { pitchBackSentNotice(it.createdAt, it.status, now) }
+        } else {
+            null
+        }
         return PitchCardDto(
             id = pitch.key,
             text = pitch.text,
@@ -473,6 +491,8 @@ class Database(val arango: Arango) {
                 availableUntil = pitch.availableUntil,
                 takenAts = taken,
             ).map { OfferedSlotDto(it.at, it.time) },
+            myPitchBackAt = notice?.sentAt,
+            myPitchBackAccepted = notice?.accepted == true,
         )
     }
 
@@ -557,13 +577,14 @@ class Database(val arango: Arango) {
     suspend fun toLocationRecDto(doc: LocationRecRecord): LocationRecDto? {
         val user = userById(doc.userId) ?: return null
         return LocationRecDto(
-            doc.key,
-            user.toPublic(),
-            doc.name,
-            doc.description,
-            doc.address,
-            doc.status,
-            doc.createdAt
+            id = doc.key,
+            user = user.toPublic(),
+            name = doc.name,
+            description = doc.description,
+            address = doc.address,
+            photoUrls = doc.photoUrls,
+            status = doc.status,
+            createdAt = doc.createdAt,
         )
     }
 
