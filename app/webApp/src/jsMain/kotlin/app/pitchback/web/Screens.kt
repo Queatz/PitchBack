@@ -268,6 +268,9 @@ fun InboxScreen(t: T, user: PublicUser?, inbox: InboxDto, lang: AppLang, refresh
             inbox.meets.forEach { meet ->
                 Div({ classes("inbox-card") }) {
                     PersonDetails(meet.otherUser) { profileUser = meet.otherUser }
+                    if (meet.outgoing) {
+                        P({ classes("status-active") }) { Text(t.meetConfirmed(meet.otherUser.name)) }
+                    }
                     P({ classes("preview") }) { Text(meet.pitchPreview) }
                     P({ classes("muted") }) { Text("📍 ${t.meetAt} ${meet.locationName}") }
                     MeetSlotLine(t, meet.slotAt)
@@ -331,6 +334,7 @@ fun InboxScreen(t: T, user: PublicUser?, inbox: InboxDto, lang: AppLang, refresh
             inbox.outgoing.forEach { pb ->
                 Div({ classes("inbox-card") }) {
                     PersonDetails(pb.toUser) { profileUser = pb.toUser }
+                    P({ classes("status-active") }) { Text(t.waitingForConfirm(pb.toUser.name)) }
                     P { Text(pb.text) }
                     if (pb.locationName.isNotBlank()) {
                         P({ classes("muted") }) { Text("📍 ${t.meetAt} ${pb.locationName}") }

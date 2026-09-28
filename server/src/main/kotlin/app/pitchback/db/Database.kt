@@ -546,6 +546,7 @@ class Database(val arango: Arango) {
             myPhotoUrl = me?.photoUrl,
             reportedNoShow = noShowByMeetAndReporter(meet.key, viewerId) != null,
             slotAt = meet.slotAt,
+            outgoing = meet.guestId == viewerId,
         )
     }
 

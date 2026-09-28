@@ -265,6 +265,7 @@ data class MeetDto(
     val myPhotoUrl: String? = null,
     val reportedNoShow: Boolean = false,
     val slotAt: Long? = null,
+    val outgoing: Boolean = false,
 )
 
 @Serializable

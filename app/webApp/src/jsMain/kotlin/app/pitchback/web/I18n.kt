@@ -303,6 +303,10 @@ class T(val lang: AppLang) {
 
     fun canceledBy(name: String): String = s("Canceled by $name", "Đã hủy bởi $name")
 
+    fun waitingForConfirm(name: String): String = s("Waiting for $name to confirm…", "Đang chờ $name xác nhận…")
+
+    fun meetConfirmed(name: String): String = s("$name confirmed the meet!", "$name đã xác nhận buổi hẹn!")
+
     fun closesAt(time: String): String = s("Closes $time", "Đóng lúc $time")
 
     fun opensAt(whenText: String): String = s("Opens $whenText", "Mở lúc $whenText")
